@@ -67,6 +67,7 @@ ifeq ($(CONFIG_TPM_V2),y)
 ccflags-y += -Ilib/wolftpm -I../include -Iinclude/configs -DWOLFTPM_USER_SETTINGS -DWOLFTPM2_NO_WOLFCRYPT
 # wolfTPM with TPM 2.0 support (including TPM firmware update)
 obj-y += wolftpm/hal/tpm_io.o
+obj-y += wolftpm/src/tpm2_linux.o
 obj-y += wolftpm/src/tpm2.o
 obj-y += wolftpm/src/tpm2_packet.o
 obj-y += wolftpm/src/tpm2_tis.o

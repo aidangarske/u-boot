@@ -27,21 +27,32 @@
 extern "C" {
 #endif
 
-
-
 #include <linux/types.h>
+
+/* ----- U-boot wolfTPM Settings -----*/
+
+/* for U-boot with linux dev ie. everything */
+#define WOLFTPM_LINUX_DEV
 
 #define XSLEEP_MS(ms) udelay(ms * 1000)
 
-#define XTPM_WAIT() /* just poll without delay by default */
+/* just poll without delay by default */
+#define XTPM_WAIT()
 
-/* U-boot with wolfTPM specific macros */
-
-#define WOLFTPM_AUTODETECT
+#undef WOLFTPM_AUTODETECT /* cant use with U-boot for now */
+#define WOLFTPM_SLB9672   /* use this for now */
 
 #define WOLFTPM_FIRMWARE_UPGRADE
 
-#ifdef __cplusplus
+/* dont create a new TPM 2.0 device */
+#define WOLFTPM2_NO_HEAP
+
+/* debugging */
+#define DEBUG_WOLFTPM
+#define WOLFTPM_DEBUG_VERBOSE
+#define WOLFTPM_DEBUG_IO
+
+#ifdef __cpluspluss
 }
 #endif
 
