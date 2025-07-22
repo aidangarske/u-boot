@@ -1,10 +1,12 @@
 /* wolftpm.c
- *
- * SPDX-License-Identifier: GPL-2.0+
- *
- * (C) Copyright 2025
- * Aidan Garske <aidan@wolfssl.com>
- */
+*
+* SPDX-License-Identifier: GPL-2.0+
+*
+* (C) Copyright 2025
+* Aidan Garske <aidan@wolfssl.com>
+*/
+
+#define LOG_CATEGORY UCLASS_BOOTSTD
 
 #ifdef HAVE_CONFIG_H
     #include <config.h>
@@ -27,6 +29,7 @@
 #include <vsprintf.h>
 #include <mapmem.h>
 #include <errno.h>
+#include <log.h>
 
 /******************************************************************************/
 /* --- BEGIN Helper Functions -- */
@@ -109,8 +112,7 @@ static int TPM2_PCRs_Print(void)
     capIn.propertyCount = 1;
     rc = TPM2_GetCapability(&capIn, &capOut);
     if (rc != TPM_RC_SUCCESS) {
-        printf("TPM2_GetCapability failed 0x%x: %s\n", rc,
-            TPM2_GetRCString(rc));
+        log_debug("TPM2_GetCapability failed rc=%d (%s)\n", rc, TPM2_GetRCString(rc));
         return rc;
     }
     pcrSel = &capOut.capabilityData.data.assignedPCR;
@@ -118,8 +120,8 @@ static int TPM2_PCRs_Print(void)
     for (pcrCount=0; pcrCount < (int)pcrSel->count; pcrCount++) {
         printf("\t%s: ", TPM2_GetAlgName(pcrSel->pcrSelections[pcrCount].hash));
         for (pcrIndex=0;
-             pcrIndex<pcrSel->pcrSelections[pcrCount].sizeofSelect*8;
-             pcrIndex++) {
+            pcrIndex<pcrSel->pcrSelections[pcrCount].sizeofSelect*8;
+            pcrIndex++) {
             if ((pcrSel->pcrSelections[pcrCount].pcrSelect[pcrIndex/8] &
                     ((1 << (pcrIndex % 8)))) != 0) {
                 printf(" %d", pcrIndex);
@@ -134,7 +136,7 @@ static int TPM2_PCRs_Print(void)
 static int TPM2_Init_Device(WOLFTPM2_DEV* dev, void* userCtx)
 {
     int rc = wolfTPM2_Init(dev, TPM2_IoCb, userCtx);
-    printf("tpm2 init: rc = %d (%s)\n", rc, TPM2_GetRCString(rc));
+    log_debug("tpm2 init: rc = %d (%s)\n", rc, TPM2_GetRCString(rc));
     return rc;
 }
 
@@ -147,7 +149,7 @@ static int TPM2_Init_Device(WOLFTPM2_DEV* dev, void* userCtx)
 /* --- BEGIN Common Commands -- */
 /******************************************************************************/
 
-static int do_TPM2_Device(void* userCtx, int argc, char *argv[])
+static int do_tpm2_device(void* userCtx, int argc, char *argv[])
 {
     int rc;
     unsigned long num;
@@ -158,20 +160,20 @@ static int do_TPM2_Device(void* userCtx, int argc, char *argv[])
     }
 
     if (argc == 2) {
-		num = dectoul(argv[1], NULL);
-		rc = tpm_set_device(num);
-		if (rc)
-			printf("Couldn't set TPM %lu (rc = %d)\n", num, rc);
-	} else {
-		rc = tpm_show_device();
-	}
+        num = dectoul(argv[1], NULL);
+        rc = tpm_set_device(num);
+        if (rc)
+            log_debug("Couldn't set TPM %lu (rc = %d)\n", num, rc);
+    } else {
+        rc = tpm_show_device();
+    }
 
-    printf("tpm device: rc = %d (%s)\n", rc, TPM2_GetRCString(rc));
+    log_debug("tpm device: rc = %d (%s)\n", rc, TPM2_GetRCString(rc));
 
     return rc;
 }
 
-static int do_TPM2_Info(void* userCtx, int argc, char *argv[])
+static int do_tpm2_info(void* userCtx, int argc, char *argv[])
 {
     int rc;
     char buf[80];
@@ -187,20 +189,20 @@ static int do_TPM2_Info(void* userCtx, int argc, char *argv[])
         /* Get the current TPM's description */
         rc = tpm_get_desc(dev, buf, sizeof(buf));
         if (rc < 0) {
-            printf("Couldn't get TPM info (%d)\n", rc);
+            log_debug("Couldn't get TPM info (%d)\n", rc);
             rc = CMD_RET_FAILURE;
         }
         else {
-            printf("%s\n", buf);
+            log_debug("%s\n", buf);
         }
     }
 
-    printf("tpm2 info: rc = %d (%s)\n", rc, TPM2_GetRCString(rc));
+    log_debug("tpm2 info: rc = %d (%s)\n", rc, TPM2_GetRCString(rc));
 
     return rc;
 }
 
-static int do_TPM2_State(void* userCtx, int argc, char *argv[])
+static int do_tpm2_state(void* userCtx, int argc, char *argv[])
 {
     int rc;
     char buf[80];
@@ -216,20 +218,20 @@ static int do_TPM2_State(void* userCtx, int argc, char *argv[])
         /* Get the current TPM's state */
         rc = tpm_report_state(dev, buf, sizeof(buf));
         if (rc < 0) {
-            printf("Couldn't get TPM state (%d)\n", rc);
+            log_debug("Couldn't get TPM state (%d)\n", rc);
             rc = CMD_RET_FAILURE;
         }
         else {
-            printf("%s\n", buf);
+            log_debug("%s\n", buf);
         }
     }
 
-    printf("tpm2 state: rc = %d (%s)\n", rc, TPM2_GetRCString(rc));
+    log_debug("tpm2 state: rc = %d (%s)\n", rc, TPM2_GetRCString(rc));
 
     return rc;
 }
 
-static int do_TPM2_Init(void* userCtx, int argc, char *argv[])
+static int do_tpm2_init(void* userCtx, int argc, char *argv[])
 {
     WOLFTPM2_DEV dev;
 
@@ -242,7 +244,7 @@ static int do_TPM2_Init(void* userCtx, int argc, char *argv[])
 }
 
 
-static int do_TPM2_AutoStart(void* userCtx, int argc, char *argv[])
+static int do_tpm2_autostart(void* userCtx, int argc, char *argv[])
 {
     int rc;
     WOLFTPM2_DEV dev;
@@ -258,7 +260,7 @@ static int do_TPM2_AutoStart(void* userCtx, int argc, char *argv[])
         * doStartup=1: Just starts up the TPM */
         rc = wolfTPM2_Reset(&dev, 0, 1);
         if (rc != TPM_RC_SUCCESS && rc != TPM_RC_INITIALIZE) {
-            printf("wolfTPM2_Reset failed 0x%x: %s\n", rc,
+            log_debug("wolfTPM2_Reset failed 0x%x: %s\n", rc,
                 TPM2_GetRCString(rc));
         }
     }
@@ -266,12 +268,12 @@ static int do_TPM2_AutoStart(void* userCtx, int argc, char *argv[])
         /* Perform a full self test */
         rc = wolfTPM2_SelfTest(&dev);
         if (rc != TPM_RC_SUCCESS) {
-            printf("wolfTPM2_SelfTest failed 0x%x: %s\n", rc,
+            log_debug("wolfTPM2_SelfTest failed 0x%x: %s\n", rc,
                 TPM2_GetRCString(rc));
         }
     }
 
-    printf("tpm2 autostart: rc = %d (%s)\n", rc, TPM2_GetRCString(rc));
+    log_debug("tpm2 autostart: rc = %d (%s)\n", rc, TPM2_GetRCString(rc));
 
     return rc;
 }
@@ -285,22 +287,22 @@ static int do_TPM2_AutoStart(void* userCtx, int argc, char *argv[])
 /* --- START TPM 2.0 Commands -- */
 /******************************************************************************/
 
-static int do_TPM2_Wrapper_GetCapsArgs(void* userCtx, int argc, char *argv[])
+static int do_tpm2_wrapper_getcapsargs(void* userCtx, int argc, char *argv[])
 {
     GetCapability_In  in;
     GetCapability_Out out;
-	u32 capability, property, rc;
-	u8 *data;
-	size_t count;
-	int i, j;
+    u32 capability, property, rc;
+    u8 *data;
+    size_t count;
+    int i, j;
 
-	if (argc != 5)
-		return CMD_RET_USAGE;
+    if (argc != 5)
+        return CMD_RET_USAGE;
 
-	capability = simple_strtoul(argv[1], NULL, 0);
-	property = simple_strtoul(argv[2], NULL, 0);
-	data = map_sysmem(simple_strtoul(argv[3], NULL, 0), 0);
-	count = simple_strtoul(argv[4], NULL, 0);
+    capability = simple_strtoul(argv[1], NULL, 0);
+    property = simple_strtoul(argv[2], NULL, 0);
+    data = map_sysmem(simple_strtoul(argv[3], NULL, 0), 0);
+    count = simple_strtoul(argv[4], NULL, 0);
 
     XMEMSET(&in, 0, sizeof(in));
     XMEMSET(&out, 0, sizeof(out));
@@ -323,14 +325,14 @@ static int do_TPM2_Wrapper_GetCapsArgs(void* userCtx, int argc, char *argv[])
         }
     }
 
-	unmap_sysmem(data);
+    unmap_sysmem(data);
 
-    printf("tpm2 get_capability: rc = %d (%s)\n", rc, TPM2_GetRCString(rc));
+    log_debug("tpm2 get_capability: rc = %d (%s)\n", rc, TPM2_GetRCString(rc));
 
     return rc;
 }
 
-static int do_TPM2_Wrapper_CapsArgs(void* userCtx, int argc, char *argv[])
+static int do_tpm2_wrapper_capsargs(void* userCtx, int argc, char *argv[])
 {
     int rc;
     WOLFTPM2_DEV dev;
@@ -346,14 +348,14 @@ static int do_TPM2_Wrapper_CapsArgs(void* userCtx, int argc, char *argv[])
         rc = wolfTPM2_GetCapabilities(&dev, &caps);
     }
     if (rc == TPM_RC_SUCCESS) {
-        printf("Mfg %s (%d), Vendor %s, Fw %u.%u (0x%x), "
+        log_debug("Mfg %s (%d), Vendor %s, Fw %u.%u (0x%x), "
             "FIPS 140-2 %d, CC-EAL4 %d\n",
             caps.mfgStr, caps.mfg, caps.vendorStr, caps.fwVerMajor,
             caps.fwVerMinor, caps.fwVerVendor, caps.fips140_2, caps.cc_eal4);
 #if defined(WOLFTPM_SLB9672) || defined(WOLFTPM_SLB9673)
-        printf("Operational mode: %s (0x%x)\n",
+        log_debug("Operational mode: %s (0x%x)\n",
             TPM2_IFX_GetOpModeStr(caps.opMode), caps.opMode);
-        printf("KeyGroupId 0x%x, FwCounter %d (%d same)\n",
+        log_debug("KeyGroupId 0x%x, FwCounter %d (%d same)\n",
             caps.keyGroupId, caps.fwCounter, caps.fwCounterSame);
 #endif
     }
@@ -362,7 +364,7 @@ static int do_TPM2_Wrapper_CapsArgs(void* userCtx, int argc, char *argv[])
     if (rc == TPM_RC_SUCCESS) {
         rc = wolfTPM2_GetHandles(PERSISTENT_FIRST, NULL);
         if (rc >= TPM_RC_SUCCESS) {
-            printf("Found %d persistent handles\n", rc);
+            log_debug("Found %d persistent handles\n", rc);
         }
     }
 
@@ -376,14 +378,14 @@ static int do_TPM2_Wrapper_CapsArgs(void* userCtx, int argc, char *argv[])
 
     wolfTPM2_Cleanup(&dev);
 
-    printf("tpm2 caps: rc = %d (%s)\n", rc, TPM2_GetRCString(rc));
+    log_debug("tpm2 caps: rc = %d (%s)\n", rc, TPM2_GetRCString(rc));
 
     return rc;
 }
 
 #ifdef WOLFTPM_FIRMWARE_UPGRADE
 #if defined(WOLFTPM_SLB9672) || defined(WOLFTPM_SLB9673)
-static int do_TPM2_Firmware_Update(void* userCtx, int argc, char *argv[])
+static int do_tpm2_firmware_update(void* userCtx, int argc, char *argv[])
 {
     int rc;
     WOLFTPM2_DEV dev;
@@ -398,7 +400,7 @@ static int do_TPM2_Firmware_Update(void* userCtx, int argc, char *argv[])
 
     /* Need 5 args: command + 4 arguments */
     if (argc != 5) {
-        printf("Error: Expected 5 arguments but got %d\n", argc);
+        log_debug("Error: Expected 5 arguments but got %d\n", argc);
         return CMD_RET_USAGE;
     }
     printf("TPM2 Firmware Update\n");
@@ -416,7 +418,7 @@ static int do_TPM2_Firmware_Update(void* userCtx, int argc, char *argv[])
     fwinfo.firmware_bufSz = firmware_sz;
 
     if (fwinfo.manifest_buf == NULL || fwinfo.firmware_buf == NULL) {
-        printf("Error: Invalid memory addresses\n");
+        log_debug("Error: Invalid memory addresses\n");
         return CMD_RET_FAILURE;
     }
 
@@ -434,7 +436,7 @@ static int do_TPM2_Firmware_Update(void* userCtx, int argc, char *argv[])
     if (rc == TPM_RC_SUCCESS) {
         TPM2_IFX_PrintInfo(&caps);
         if (caps.keyGroupId == 0) {
-            printf("Error getting key group id from TPM!\n");
+            log_debug("Error getting key group id from TPM!\n");
         }
         if (caps.opMode == 0x02 || (caps.opMode & 0x80)) {
             /* if opmode == 2 or 0x8x then we need to use recovery mode */
@@ -472,18 +474,18 @@ static int do_TPM2_Firmware_Update(void* userCtx, int argc, char *argv[])
         unmap_sysmem(fwinfo.firmware_buf);
 
     if (rc != TPM_RC_SUCCESS) {
-        printf("Infineon firmware update failed 0x%x: %s\n",
+        log_debug("Infineon firmware update failed 0x%x: %s\n",
             rc, TPM2_GetRCString(rc));
     }
 
     wolfTPM2_Cleanup(&dev);
 
-    printf("tpm2 firmware_update: rc=%d (%s)\n", rc, TPM2_GetRCString(rc));
+    log_debug("tpm2 firmware_update: rc=%d (%s)\n", rc, TPM2_GetRCString(rc));
 
     return rc;
 }
 
-static int do_TPM2_Firmware_Cancel(void* userCtx, int argc, char *argv[])
+static int do_tpm2_firmware_cancel(void* userCtx, int argc, char *argv[])
 {
     int rc;
     WOLFTPM2_DEV dev;
@@ -506,21 +508,21 @@ static int do_TPM2_Firmware_Cancel(void* userCtx, int argc, char *argv[])
         rc = TPM2_IFX_FieldUpgradeCommand(TPM_CC_FieldUpgradeAbandonVendor,
             cmd, sizeof(cmd));
         if (rc != TPM_RC_SUCCESS) {
-            printf("Firmware abandon failed 0x%x: %s\n",
+            log_debug("Firmware abandon failed 0x%x: %s\n",
                 rc, TPM2_GetRCString(rc));
         }
     }
 
     wolfTPM2_Cleanup(&dev);
 
-    printf("tpm2 firmware_cancel: rc=%d (%s)\n", rc, TPM2_GetRCString(rc));
+    log_debug("tpm2 firmware_cancel: rc=%d (%s)\n", rc, TPM2_GetRCString(rc));
 
     return rc;
 }
 #endif /* WOLFTPM_SLB9672 || WOLFTPM_SLB9673 */
 #endif /* WOLFTPM_FIRMWARE_UPGRADE */
 
-static int do_TPM2_Startup(void* userCtx, int argc, char *const argv[])
+static int do_tpm2_startup(void* userCtx, int argc, char *const argv[])
 {
     int rc;
     WOLFTPM2_DEV dev;
@@ -559,7 +561,7 @@ static int do_TPM2_Startup(void* userCtx, int argc, char *const argv[])
             shutdownIn.shutdownType = TPM_SU_STATE;
         }
     } else {
-        printf("Couldn't recognize mode string: %s\n", argv[1]);
+        log_debug("Couldn't recognize mode string: %s\n", argv[1]);
         wolfTPM2_Cleanup(&dev);
         return CMD_RET_FAILURE;
     }
@@ -569,14 +571,14 @@ static int do_TPM2_Startup(void* userCtx, int argc, char *const argv[])
         rc = TPM2_Startup(&startupIn);
         /* TPM_RC_INITIALIZE = Already started */
         if (rc != TPM_RC_SUCCESS && rc != TPM_RC_INITIALIZE) {
-            printf("TPM2 Startup: Result = 0x%x (%s)\n", rc,
+            log_debug("TPM2 Startup: Result = 0x%x (%s)\n", rc,
                 TPM2_GetRCString(rc));
         }
     /* shutdown */
     } else {
         rc = TPM2_Shutdown(&shutdownIn);
         if (rc != TPM_RC_SUCCESS) {
-            printf("TPM2 Shutdown: Result = 0x%x (%s)\n", rc,
+            log_debug("TPM2 Shutdown: Result = 0x%x (%s)\n", rc,
                 TPM2_GetRCString(rc));
         }
     }
@@ -586,13 +588,13 @@ static int do_TPM2_Startup(void* userCtx, int argc, char *const argv[])
     if (rc >= 0)
         rc = 0;
 
-    printf("tpm2 startup (%s): rc = %d (%s)\n",
+    log_debug("tpm2 startup (%s): rc = %d (%s)\n",
         doStartup ? "startup" : "shutdown", rc, TPM2_GetRCString(rc));
 
     return rc;
 }
 
-static int do_TPM2_SelfTest(void* userCtx, int argc, char *const argv[])
+static int do_tpm2_selftest(void* userCtx, int argc, char *const argv[])
 {
     int rc;
     WOLFTPM2_DEV dev;
@@ -611,7 +613,7 @@ static int do_TPM2_SelfTest(void* userCtx, int argc, char *const argv[])
         } else if (!strcmp(argv[1], "continue")) {
             fullTest = NO;
         } else {
-            printf("Couldn't recognize test mode: %s\n", argv[1]);
+            log_debug("Couldn't recognize test mode: %s\n", argv[1]);
             wolfTPM2_Cleanup(&dev);
             return CMD_RET_FAILURE;
         }
@@ -620,14 +622,14 @@ static int do_TPM2_SelfTest(void* userCtx, int argc, char *const argv[])
         if (fullTest == YES) {
             rc = wolfTPM2_SelfTest(&dev);
             if (rc != TPM_RC_SUCCESS) {
-                printf("TPM2 Self Test: Result = 0x%x (%s)\n", rc,
+                log_debug("TPM2 Self Test: Result = 0x%x (%s)\n", rc,
                     TPM2_GetRCString(rc));
             }
         /* continue test */
         } else {
             rc = wolfTPM2_SelfTest(&dev);
             if (rc != TPM_RC_SUCCESS) {
-                printf("TPM2 Self Test: Result = 0x%x (%s)\n", rc,
+                log_debug("TPM2 Self Test: Result = 0x%x (%s)\n", rc,
                     TPM2_GetRCString(rc));
             }
         }
@@ -635,13 +637,13 @@ static int do_TPM2_SelfTest(void* userCtx, int argc, char *const argv[])
 
     wolfTPM2_Cleanup(&dev);
 
-    printf("tpm2 selftest (%s): rc = %d (%s)\n",
+    log_debug("tpm2 selftest (%s): rc = %d (%s)\n",
         fullTest ? "full" : "continue", rc, TPM2_GetRCString(rc));
 
     return rc;
 }
 
-static int do_TPM2_Clear(void* userCtx, int argc, char *const argv[])
+static int do_tpm2_clear(void* userCtx, int argc, char *const argv[])
 {
     int rc;
     WOLFTPM2_DEV dev;
@@ -670,21 +672,21 @@ static int do_TPM2_Clear(void* userCtx, int argc, char *const argv[])
 
         rc = TPM2_Clear(&clearIn);
         if (rc != TPM_RC_SUCCESS) {
-            printf("TPM2 Clear: Result = 0x%x (%s)\n", rc,
+            log_debug("TPM2 Clear: Result = 0x%x (%s)\n", rc,
                 TPM2_GetRCString(rc));
         }
     }
 
     wolfTPM2_Cleanup(&dev);
 
-    printf("tpm2 clear (%s): rc = %d (%s)\n",
+    log_debug("tpm2 clear (%s): rc = %d (%s)\n",
         handle == TPM_RH_LOCKOUT ? "TPM2_RH_LOCKOUT" : "TPM2_RH_PLATFORM",
         rc, TPM2_GetRCString(rc));
 
     return rc;
 }
 
-static int do_TPM2_PCR_Extend(void* userCtx, int argc, char *const argv[])
+static int do_tpm2_pcr_extend(void* userCtx, int argc, char *const argv[])
 {
     int rc;
     WOLFTPM2_DEV dev;
@@ -707,27 +709,27 @@ static int do_TPM2_PCR_Extend(void* userCtx, int argc, char *const argv[])
     if (argc == 4) {
         algo = TPM2_GetAlgId(argv[3]);
         if (algo < 0) {
-            printf("Couldn't recognize algorithm: %s\n", argv[3]);
+            log_debug("Couldn't recognize algorithm: %s\n", argv[3]);
             return CMD_RET_FAILURE;
         }
-        printf("Using algorithm: %s\n", TPM2_GetAlgName(algo));
+        log_debug("Using algorithm: %s\n", TPM2_GetAlgName(algo));
     }
 
     /* Get digest length based on algorithm */
     digestLen = TPM2_GetHashDigestSize(algo);
     if (digestLen <= 0) {
-        printf("Invalid algorithm digest length\n");
+        log_debug("Invalid algorithm digest length\n");
         return CMD_RET_FAILURE;
     }
 
     /* Map digest from memory address */
     digest = map_sysmem(digest_addr, digestLen);
     if (digest == NULL) {
-        printf("Error: Invalid digest memory address\n");
+        log_debug("Error: Invalid digest memory address\n");
         return CMD_RET_FAILURE;
     }
 
-    printf("TPM2 PCR Extend: PCR %u with %s digest\n",
+    log_debug("TPM2 PCR Extend: PCR %u with %s digest\n",
         (unsigned int)pcrIndex, TPM2_GetAlgName(algo));
 
     /* Init the TPM2 device */
@@ -740,19 +742,19 @@ static int do_TPM2_PCR_Extend(void* userCtx, int argc, char *const argv[])
     /* Extend the PCR */
     rc = wolfTPM2_ExtendPCR(&dev, pcrIndex, algo, digest, digestLen);
     if (rc != TPM_RC_SUCCESS) {
-        printf("TPM2_PCR_Extend failed 0x%x: %s\n", rc,
+        log_debug("TPM2_PCR_Extend failed 0x%x: %s\n", rc,
             TPM2_GetRCString(rc));
     }
 
     unmap_sysmem(digest);
     wolfTPM2_Cleanup(&dev);
 
-    printf("tpm2 pcr_extend: rc = %d (%s)\n", rc, TPM2_GetRCString(rc));
+    log_debug("tpm2 pcr_extend: rc = %d (%s)\n", rc, TPM2_GetRCString(rc));
 
     return rc;
 }
 
-static int do_TPM2_PCR_Read(void* userCtx, int argc, char *const argv[])
+static int do_tpm2_pcr_read(void* userCtx, int argc, char *const argv[])
 {
     int rc;
     WOLFTPM2_DEV dev;
@@ -774,27 +776,27 @@ static int do_TPM2_PCR_Read(void* userCtx, int argc, char *const argv[])
     if (argc == 4) {
         algo = TPM2_GetAlgId(argv[3]);
         if (algo < 0) {
-            printf("Couldn't recognize algorithm: %s\n", argv[3]);
+            log_debug("Couldn't recognize algorithm: %s\n", argv[3]);
             return CMD_RET_FAILURE;
         }
-        printf("Using algorithm: %s\n", TPM2_GetAlgName(algo));
+        log_debug("Using algorithm: %s\n", TPM2_GetAlgName(algo));
     }
 
     /* Get digest length based on algorithm */
     digestLen = TPM2_GetHashDigestSize(algo);
     if (digestLen <= 0) {
-        printf("Invalid algorithm digest length\n");
+        log_debug("Invalid algorithm digest length\n");
         return CMD_RET_FAILURE;
     }
 
     /* Map digest from memory address */
     digest = map_sysmem(digest_addr, digestLen);
     if (digest == NULL) {
-        printf("Error: Invalid digest memory address\n");
+        log_debug("Error: Invalid digest memory address\n");
         return CMD_RET_FAILURE;
     }
 
-    printf("TPM2 PCR Read: PCR %u to %s digest\n",
+    log_debug("TPM2 PCR Read: PCR %u to %s digest\n",
         (unsigned int)pcrIndex, TPM2_GetAlgName(algo));
 
     /* Init the TPM2 device */
@@ -807,19 +809,19 @@ static int do_TPM2_PCR_Read(void* userCtx, int argc, char *const argv[])
     /* Read the PCR */
     rc = wolfTPM2_ReadPCR(&dev, pcrIndex, algo, digest, &digestLen);
     if (rc != TPM_RC_SUCCESS) {
-        printf("TPM2_PCR_Read failed 0x%x: %s\n", rc,
+        log_debug("TPM2_PCR_Read failed 0x%x: %s\n", rc,
             TPM2_GetRCString(rc));
     }
 
     unmap_sysmem(digest);
     wolfTPM2_Cleanup(&dev);
 
-    printf("tpm2 pcr_read: rc = %d (%s)\n", rc, TPM2_GetRCString(rc));
+    log_debug("tpm2 pcr_read: rc = %d (%s)\n", rc, TPM2_GetRCString(rc));
 
     return rc;
 }
 
-static int do_TPM2_PCR_Allocate(void* userCtx, int argc, char *const argv[])
+static int do_tpm2_pcr_allocate(void* userCtx, int argc, char *const argv[])
 {
     int rc;
     WOLFTPM2_DEV dev;
@@ -856,11 +858,11 @@ static int do_TPM2_PCR_Allocate(void* userCtx, int argc, char *const argv[])
             PCR_SELECT_MAX);
     }
     else {
-        printf("Couldn't recognize allocate mode: %s\n", argv[2]);
+        log_debug("Couldn't recognize allocate mode: %s\n", argv[2]);
         wolfTPM2_Cleanup(&dev);
         return CMD_RET_USAGE;
     }
-    printf("Attempting to set %s bank to %s\n",
+    log_debug("Attempting to set %s bank to %s\n",
         TPM2_GetAlgName(in.pcrAllocation.pcrSelections[0].hash),
         argv[2]);
 
@@ -871,7 +873,7 @@ static int do_TPM2_PCR_Allocate(void* userCtx, int argc, char *const argv[])
         XMEMCPY(auth.buffer, argv[3], auth.size);
         rc = wolfTPM2_SetAuth(&dev, 0, TPM_RH_PLATFORM, &auth, 0, NULL);
         if (rc != TPM_RC_SUCCESS) {
-            printf("wolfTPM2_SetAuth failed 0x%x: %s\n", rc,
+            log_debug("wolfTPM2_SetAuth failed 0x%x: %s\n", rc,
                 TPM2_GetRCString(rc));
             wolfTPM2_Cleanup(&dev);
             return rc;
@@ -881,7 +883,7 @@ static int do_TPM2_PCR_Allocate(void* userCtx, int argc, char *const argv[])
     /* Allocate the PCR */
     rc = TPM2_PCR_Allocate(&in, &out);
     if (rc != TPM_RC_SUCCESS) {
-        printf("TPM2_PCR_Allocate failed 0x%x: %s\n", rc,
+        log_debug("TPM2_PCR_Allocate failed 0x%x: %s\n", rc,
             TPM2_GetRCString(rc));
     }
 
@@ -894,7 +896,7 @@ static int do_TPM2_PCR_Allocate(void* userCtx, int argc, char *const argv[])
 
     printf("Allocation Success: %s\n",
         out.allocationSuccess ? "YES" : "NO");
-    printf("tpm2 pcr_allocate %s (%s): rc = %d (%s)\n",
+    log_debug("tpm2 pcr_allocate %s (%s): rc = %d (%s)\n",
         TPM2_GetAlgName(in.pcrAllocation.pcrSelections[0].hash),
         argv[2], rc, TPM2_GetRCString(rc));
 
@@ -902,9 +904,9 @@ static int do_TPM2_PCR_Allocate(void* userCtx, int argc, char *const argv[])
 }
 
 /* We dont have parameter encryption enabled when WOLFTPM2_NO_WOLFCRYPT
- * is defined. If the session isn't used then the new password is not
- * encrypted in transit over the bus: "a session is required to protect
- * the new platform auth" */
+* is defined. If the session isn't used then the new password is not
+* encrypted in transit over the bus: "a session is required to protect
+* the new platform auth" */
 #ifndef WOLFTPM2_NO_WOLFCRYPT
 static int TPM2_PCR_SetAuth(void* userCtx, int argc, char *argv[],
     int isPolicy)
@@ -931,7 +933,7 @@ static int TPM2_PCR_SetAuth(void* userCtx, int argc, char *argv[],
     rc = wolfTPM2_StartSession(&dev, &session, NULL, NULL,
         isPolicy ? TPM_SE_POLICY : TPM_SE_HMAC, TPM_ALG_NULL);
     if (rc != TPM_RC_SUCCESS) {
-        printf("wolfTPM2_StartSession failed 0x%x: %s\n", rc,
+        log_debug("wolfTPM2_StartSession failed 0x%x: %s\n", rc,
             TPM2_GetRCString(rc));
         wolfTPM2_Cleanup(&dev);
         return rc;
@@ -946,7 +948,7 @@ static int TPM2_PCR_SetAuth(void* userCtx, int argc, char *argv[],
         rc = wolfTPM2_SetAuth(&dev, 0, TPM_RH_PLATFORM,
             &platformAuth, 0, NULL);
         if (rc != TPM_RC_SUCCESS) {
-            printf("wolfTPM2_SetAuth failed 0x%x: %s\n", rc,
+            log_debug("wolfTPM2_SetAuth failed 0x%x: %s\n", rc,
                 TPM2_GetRCString(rc));
             wolfTPM2_UnloadHandle(&dev, &session.handle);
             wolfTPM2_Cleanup(&dev);
@@ -981,7 +983,7 @@ static int TPM2_PCR_SetAuth(void* userCtx, int argc, char *argv[],
     }
 
     if (rc != TPM_RC_SUCCESS) {
-        printf("TPM2_PCR_SetAuth%s failed 0x%x: %s\n",
+        log_debug("TPM2_PCR_SetAuth%s failed 0x%x: %s\n",
             isPolicy ? "Policy" : "Value",
             rc, TPM2_GetRCString(rc));
     }
@@ -989,23 +991,23 @@ static int TPM2_PCR_SetAuth(void* userCtx, int argc, char *argv[],
     wolfTPM2_UnloadHandle(&dev, &session.handle);
     wolfTPM2_Cleanup(&dev);
 
-    printf("tpm2 set_auth %s: rc = %d (%s)\n",
+    log_debug("tpm2 set_auth %s: rc = %d (%s)\n",
         isPolicy ? "Policy" : "Value", rc, TPM2_GetRCString(rc));
 
     return rc;
 }
 
-static int do_TPM2_PCR_SetAuthPolicy(void* userCtx, int argc, char *argv[])
+static int do_tpm2_pcr_setauthpolicy(void* userCtx, int argc, char *argv[])
 {
     return TPM2_PCR_SetAuth(userCtx, argc, argv, YES);
 }
 
-static int do_TPM2_PCR_SetAuthValue(void* userCtx, int argc, char *argv[])
+static int do_tpm2_pcr_setauthvalue(void* userCtx, int argc, char *argv[])
 {
     return TPM2_PCR_SetAuth(userCtx, argc, argv, NO);
 }
 
-static int do_TPM2_Change_Auth(void* userCtx, int argc, char *const argv[])
+static int do_tpm2_change_auth(void* userCtx, int argc, char *const argv[])
 {
     int rc;
     WOLFTPM2_DEV dev;
@@ -1053,7 +1055,7 @@ static int do_TPM2_Change_Auth(void* userCtx, int argc, char *const argv[])
     rc = wolfTPM2_StartSession(&dev, &session, NULL, NULL,
         TPM_SE_HMAC, TPM_ALG_CFB);
     if (rc != TPM_RC_SUCCESS) {
-        printf("wolfTPM2_StartSession failed 0x%x: %s\n", rc,
+        log_debug("wolfTPM2_StartSession failed 0x%x: %s\n", rc,
             TPM2_GetRCString(rc));
         wolfTPM2_Cleanup(&dev);
         return rc;
@@ -1067,7 +1069,7 @@ static int do_TPM2_Change_Auth(void* userCtx, int argc, char *const argv[])
         XMEMCPY(oldAuth.buffer, oldpw, oldpw_sz);
         rc = wolfTPM2_SetAuthPassword(&dev, 0, &oldAuth);
         if (rc != TPM_RC_SUCCESS) {
-            printf("wolfTPM2_SetAuthPassword failed 0x%x: %s\n", rc,
+            log_debug("wolfTPM2_SetAuthPassword failed 0x%x: %s\n", rc,
                 TPM2_GetRCString(rc));
             wolfTPM2_UnloadHandle(&dev, &session.handle);
             wolfTPM2_Cleanup(&dev);
@@ -1083,22 +1085,22 @@ static int do_TPM2_Change_Auth(void* userCtx, int argc, char *const argv[])
     /* Change the auth based on the hierarchy */
     rc = wolfTPM2_ChangeHierarchyAuth(&dev, &session, in.authHandle);
     if (rc != TPM_RC_SUCCESS) {
-        printf("wolfTPM2_ChangeHierarchyAuth failed 0x%x: %s\n", rc,
+        log_debug("wolfTPM2_ChangeHierarchyAuth failed 0x%x: %s\n", rc,
             TPM2_GetRCString(rc));
     } else {
-        printf("Successfully changed auth for %s\n", argv[1]);
+        log_debug("Successfully changed auth for %s\n", argv[1]);
     }
 
     wolfTPM2_UnloadHandle(&dev, &session.handle);
     wolfTPM2_Cleanup(&dev);
 
-    printf("tpm2 change_auth: rc = %d (%s)\n", rc, TPM2_GetRCString(rc));
+    log_debug("tpm2 change_auth: rc = %d (%s)\n", rc, TPM2_GetRCString(rc));
 
     return rc;
 }
 #endif /* !WOLFTPM2_NO_WOLFCRYPT */
 
-static int do_TPM2_PCR_Print(void* userCtx, int argc, char *argv[])
+static int do_tpm2_pcr_print(void* userCtx, int argc, char *argv[])
 {
     int rc;
     WOLFTPM2_DEV dev;
@@ -1116,12 +1118,12 @@ static int do_TPM2_PCR_Print(void* userCtx, int argc, char *argv[])
     }
     wolfTPM2_Cleanup(&dev);
 
-    printf("tpm2 pcr_print: rc = %d (%s)\n", rc, TPM2_GetRCString(rc));
+    log_debug("tpm2 pcr_print: rc = %d (%s)\n", rc, TPM2_GetRCString(rc));
 
     return rc;
 }
 
-static int do_TPM2_Dam_Reset(void* userCtx, int argc, char *const argv[])
+static int do_tpm2_dam_reset(void* userCtx, int argc, char *const argv[])
 {
     int rc;
     WOLFTPM2_DEV dev;
@@ -1137,7 +1139,7 @@ static int do_TPM2_Dam_Reset(void* userCtx, int argc, char *const argv[])
 
     /* Validate password length if provided */
     if (pw && pw_sz > TPM_SHA256_DIGEST_SIZE) {
-        printf("Error: Password too long\n");
+        log_debug("Error: Password too long\n");
         return -EINVAL;
     }
 
@@ -1158,34 +1160,34 @@ static int do_TPM2_Dam_Reset(void* userCtx, int argc, char *const argv[])
         TPM2_SetSessionAuth(session);
 
         rc = TPM2_DictionaryAttackLockReset(&in);
-        printf("TPM2_Dam_Reset: Result = 0x%x (%s)\n", rc,
+        log_debug("TPM2_Dam_Reset: Result = 0x%x (%s)\n", rc,
             TPM2_GetRCString(rc));
     }
     wolfTPM2_Cleanup(&dev);
 
-    printf("tpm2 dam_reset: rc = %d (%s)\n", rc, TPM2_GetRCString(rc));
+    log_debug("tpm2 dam_reset: rc = %d (%s)\n", rc, TPM2_GetRCString(rc));
 
     return rc;
 }
 
-static int do_TPM2_Dam_Parameters(void* userCtx, int argc, char *const argv[])
+static int do_tpm2_dam_parameters(void* userCtx, int argc, char *const argv[])
 {
     int rc;
     WOLFTPM2_DEV dev;
     const char *pw = (argc < 5) ? NULL : argv[4];
-	const ssize_t pw_sz = pw ? strlen(pw) : 0;
+    const ssize_t pw_sz = pw ? strlen(pw) : 0;
     DictionaryAttackParameters_In in;
     TPM2_AUTH_SESSION session[MAX_SESSION_NUM];
 
     /* Need 4-5 args: command + max_tries + recovery_time +
-     * lockout_recovery + [password] */
+    * lockout_recovery + [password] */
     if (argc < 4 || argc > 5) {
         return CMD_RET_USAGE;
     }
 
     /* Validate password length if provided */
     if (pw && pw_sz > TPM_SHA256_DIGEST_SIZE) {
-        printf("Error: Password too long\n");
+        log_debug("Error: Password too long\n");
         return -EINVAL;
     }
 
@@ -1213,18 +1215,18 @@ static int do_TPM2_Dam_Parameters(void* userCtx, int argc, char *const argv[])
         /* Set DAM parameters */
         rc = TPM2_DictionaryAttackParameters(&in);
         if (rc != TPM_RC_SUCCESS) {
-            printf("TPM2_DictionaryAttackParameters failed 0x%x: %s\n", rc,
+            log_debug("TPM2_DictionaryAttackParameters failed 0x%x: %s\n", rc,
                 TPM2_GetRCString(rc));
         }
 
-        printf("Changing dictionary attack parameters:\n");
-        printf("  maxTries: %u\n", in.newMaxTries);
-        printf("  recoveryTime: %u\n", in.newRecoveryTime);
-        printf("  lockoutRecovery: %u\n", in.lockoutRecovery);
+        log("Changing dictionary attack parameters:\n");
+        log("  maxTries: %u\n", in.newMaxTries);
+        log("  recoveryTime: %u\n", in.newRecoveryTime);
+        log("  lockoutRecovery: %u\n", in.lockoutRecovery);
     }
     wolfTPM2_Cleanup(&dev);
 
-    printf("tpm2 dam_parameters: rc = %d (%s)\n", rc, TPM2_GetRCString(rc));
+    log_debug("tpm2 dam_parameters: rc = %d (%s)\n", rc, TPM2_GetRCString(rc));
 
     return rc;
 }
@@ -1239,75 +1241,75 @@ static int do_wolftpm(struct cmd_tbl *cmdtp, int flag, int argc,
 
     /* Common commands */
     if (strcmp(argv[1], "device") == 0) {
-        return do_TPM2_Device(NULL, argc-1, (char **)&argv[1]);
+        return do_tpm2_device(NULL, argc-1, (char **)&argv[1]);
     }
     if (strcmp(argv[1], "info") == 0) {
-        return do_TPM2_Info(NULL, argc-1, (char **)&argv[1]);
+        return do_tpm2_info(NULL, argc-1, (char **)&argv[1]);
     }
     if (strcmp(argv[1], "state") == 0) {
-        return do_TPM2_State(NULL, argc-1, (char **)&argv[1]);
+        return do_tpm2_state(NULL, argc-1, (char **)&argv[1]);
     }
     if (strcmp(argv[1], "init") == 0) {
-        return do_TPM2_Init(NULL, argc-1, (char **)&argv[1]);
+        return do_tpm2_init(NULL, argc-1, (char **)&argv[1]);
     }
     if (strcmp(argv[1], "autostart") == 0) {
-        return do_TPM2_AutoStart(NULL, argc-1, (char **)&argv[1]);
+        return do_tpm2_autostart(NULL, argc-1, (char **)&argv[1]);
     }
 
     /* wolfTPM U-boot commands */
     if (strcmp(argv[1], "startup") == 0) {
-        return do_TPM2_Startup(NULL, argc-1, (char **)&argv[1]);
+        return do_tpm2_startup(NULL, argc-1, (char **)&argv[1]);
     }
     if (strcmp(argv[1], "self_test") == 0) {
-        return do_TPM2_SelfTest(NULL, argc-1, (char **)&argv[1]);
+        return do_tpm2_selftest(NULL, argc-1, (char **)&argv[1]);
     }
     if (strcmp(argv[1], "clear") == 0) {
-        return do_TPM2_Clear(NULL, argc-1, (char **)&argv[1]);
+        return do_tpm2_clear(NULL, argc-1, (char **)&argv[1]);
     }
     if (strcmp(argv[1], "pcr_extend") == 0) {
-        return do_TPM2_PCR_Extend(NULL, argc-1, (char **)&argv[1]);
+        return do_tpm2_pcr_extend(NULL, argc-1, (char **)&argv[1]);
     }
     if (strcmp(argv[1], "pcr_read") == 0) {
-        return do_TPM2_PCR_Read(NULL, argc-1, (char **)&argv[1]);
+        return do_tpm2_pcr_read(NULL, argc-1, (char **)&argv[1]);
     }
     if (strcmp(argv[1], "pcr_allocate") == 0) {
-        return do_TPM2_PCR_Allocate(NULL, argc-1, (char **)&argv[1]);
+        return do_tpm2_pcr_allocate(NULL, argc-1, (char **)&argv[1]);
     }
     if (strcmp(argv[1], "pcr_print") == 0) {
-        return do_TPM2_PCR_Print(NULL, argc-1, (char **)&argv[1]);
+        return do_tpm2_pcr_print(NULL, argc-1, (char **)&argv[1]);
     }
 #ifndef WOLFTPM2_NO_WOLFCRYPT
     if (strcmp(argv[1], "change_auth") == 0) {
-        return do_TPM2_Change_Auth(NULL, argc-1, (char **)&argv[1]);
+        return do_tpm2_change_auth(NULL, argc-1, (char **)&argv[1]);
     }
     if (strcmp(argv[1], "pcr_setauthpolicy") == 0) {
-        return do_TPM2_PCR_SetAuthPolicy(NULL, argc-1, (char **)&argv[1]);
+        return do_tpm2_pcr_setauthpolicy(NULL, argc-1, (char **)&argv[1]);
     }
     if (strcmp(argv[1], "pcr_setauthvalue") == 0) {
-        return do_TPM2_PCR_SetAuthValue(NULL, argc-1, (char **)&argv[1]);
+        return do_tpm2_pcr_setauthvalue(NULL, argc-1, (char **)&argv[1]);
     }
 #endif /* !WOLFTPM2_NO_WOLFCRYPT */
     if (strcmp(argv[1], "get_capability") == 0) {
-        return do_TPM2_Wrapper_GetCapsArgs(NULL, argc-1, (char **)&argv[1]);
+        return do_tpm2_wrapper_getcapsargs(NULL, argc-1, (char **)&argv[1]);
     }
     if (strcmp(argv[1], "dam_reset") == 0) {
-        return do_TPM2_Dam_Reset(NULL, argc-1, (char **)&argv[1]);
+        return do_tpm2_dam_reset(NULL, argc-1, (char **)&argv[1]);
     }
     if (strcmp(argv[1], "dam_parameters") == 0) {
-        return do_TPM2_Dam_Parameters(NULL, argc-1, (char **)&argv[1]);
+        return do_tpm2_dam_parameters(NULL, argc-1, (char **)&argv[1]);
     }
 
     /* New wolfTPM Commands */
     if (strcmp(argv[1], "caps") == 0) {
-        return do_TPM2_Wrapper_CapsArgs(NULL, argc-1, (char **)&argv[1]);
+        return do_tpm2_wrapper_capsargs(NULL, argc-1, (char **)&argv[1]);
     }
 #ifdef WOLFTPM_FIRMWARE_UPGRADE
 #if defined(WOLFTPM_SLB9672) || defined(WOLFTPM_SLB9673)
     if (strcmp(argv[1], "firmware_update") == 0) {
-        return do_TPM2_Firmware_Update(NULL, argc-1, (char **)&argv[1]);
+        return do_tpm2_firmware_update(NULL, argc-1, (char **)&argv[1]);
     }
     if (strcmp(argv[1], "firmware_cancel") == 0) {
-        return do_TPM2_Firmware_Cancel(NULL, argc-1, (char **)&argv[1]);
+        return do_tpm2_firmware_cancel(NULL, argc-1, (char **)&argv[1]);
     }
 #endif
 #endif /* WOLFTPM_FIRMWARE_UPGRADE */
