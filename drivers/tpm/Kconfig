@@ -218,6 +218,24 @@ config TPM2_EVENT_LOG_SIZE
 	  allocated twice. One for the eventlog it self and one for the
 	  configuration table that is required from the TCG2 spec
 
+config WOLFTPM_SLB9672
+    bool "Enable support for Infineon SLB9672 TPM"
+    depends on TPM_V2 && TPM_WOLF
+    help
+      Enable support for Infineon SLB9672 TPM features in wolfTPM.
+
+config WOLFTPM_SLB9673
+    bool "Enable support for Infineon SLB9673 TPM"
+    depends on TPM_V2 && TPM_WOLF
+    help
+      Enable support for Infineon SLB9673 TPM features in wolfTPM.
+
+config WOLFTPM_FIRMWARE_UPGRADE
+    bool "Enable firmware upgrade support for wolfTPM"
+    depends on TPM_V2 && TPM_WOLF
+    help
+      Enable support for Infineon TPM firmware upgrade commands in wolfTPM.
+
 endif # TPM_V2
 
 endmenu
