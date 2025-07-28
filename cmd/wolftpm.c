@@ -1157,11 +1157,11 @@ struct cmd_tbl *get_wolftpm_commands(unsigned int *size)
 }
 
 U_BOOT_CMD(
-    tpm2,                   /* name of cmd */
+    wolftpm,                /* name of cmd */
     CONFIG_SYS_MAXARGS,     /* max args    */
     1,                      /* repeatable  */
     do_wolftpm,             /* function    */
-    "Issue a TPMv2.x command (using wolfTPM stack)",
+    "Issue a TPMv2.x command - Using wolfTPM",
     "<command> [<arguments>]\n"
     "\n"
     "Commands:\n"
