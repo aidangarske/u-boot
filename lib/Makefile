@@ -73,8 +73,7 @@ ccflags-y += -Ilib/wolftpm \
              -DWOLFTPM_USER_SETTINGS \
              -DWOLFTPM2_NO_WOLFCRYPT
 obj-y += wolftpm/hal/tpm_io.o
-obj-y += wolftpm/hal/tpm_io_uboot.o
-obj-y += wolftpm/src/tpm2_linux.o
+obj-$(CONFIG_WOLFTPM_LINUX_DEV) += wolftpm/src/tpm2_linux.o
 obj-y += wolftpm/src/tpm2.o
 obj-y += wolftpm/src/tpm2_packet.o
 obj-y += wolftpm/src/tpm2_tis.o

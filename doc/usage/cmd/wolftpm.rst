@@ -69,6 +69,49 @@ Enable wolfTPM support in U-Boot by adding these options to your board's defconf
 
 Or use ``make menuconfig`` and enable:
 
+Enabling Debug Output
+~~~~~~~~~~~~~~~~~~~~~
+
+wolfTPM commands use U-Boot's logging system. To see debug output at runtime,
+use the ``log level`` command at the U-Boot prompt::
+
+    => log level 7
+
+Log levels:
+
+- 4 = WARNING (default)
+- 6 = INFO
+- 7 = DEBUG (shows wolfTPM command debug output)
+- 9 = DEBUG_IO (very verbose)
+
+Example with debug enabled::
+
+    => log level 7
+    => wolftpm autostart
+    tpm2 init: rc = 0 (Success)
+    wolfTPM2_Reset: rc = 0 (Success)
+    wolfTPM2_SelfTest: rc = 0 (Success)
+
+To make debug level persistent, add to your board's environment::
+
+    => setenv loglevel 7
+    => saveenv
+
+wolfTPM Library Debug
+^^^^^^^^^^^^^^^^^^^^^
+
+For lower-level wolfTPM library debug output, edit
+``include/configs/user_settings.h`` and uncomment::
+
+    #define DEBUG_WOLFTPM           /* Basic wolfTPM debug messages */
+    #define WOLFTPM_DEBUG_VERBOSE   /* Verbose debug messages */
+    #define WOLFTPM_DEBUG_IO        /* IO-level debug (SPI transfers) */
+
+After enabling, rebuild U-Boot::
+
+    make clean
+    make -j4
+
 - Device Drivers → TPM → TPM 2.0 Support
 - Device Drivers → TPM → wolfTPM Support
 - Command line interface → Security commands → Enable wolfTPM commands
@@ -137,3 +180,129 @@ To build and run wolfTPM with U-Boot using QEMU and a TPM simulator, follow thes
 
 8. Exiting the QEMU:
    Press Ctrl-A followed by X
+
+Testing wolfTPM
+---------------
+
+wolfTPM includes a comprehensive test suite based on the existing TPM2 tests.
+The tests are located in:
+
+- ``test/cmd/wolftpm.c`` - C unit tests (based on ``test/dm/tpm.c`` and ``test/cmd/hash.c``)
+- ``test/py/tests/test_wolftpm.py`` - Python integration tests (based on ``test/py/tests/test_tpm2.py``)
+
+Running C Unit Tests
+~~~~~~~~~~~~~~~~~~~~
+
+The C unit tests use the U-Boot test framework and can be run in sandbox mode
+or on real hardware. To run all wolfTPM tests::
+
+    # Build sandbox with tests enabled
+    make sandbox_defconfig
+    # Enable wolfTPM in menuconfig
+    make menuconfig
+    make -j4
+
+    # Run U-Boot sandbox
+    ./u-boot -T
+
+    # In U-Boot sandbox, run the unit tests
+    => ut cmd wolftpm
+
+Individual tests can be run by name::
+
+    => ut cmd cmd_test_wolftpm_autostart
+    => ut cmd cmd_test_wolftpm_init
+    => ut cmd cmd_test_wolftpm_self_test
+    => ut cmd cmd_test_wolftpm_caps
+    => ut cmd cmd_test_wolftpm_clear
+    => ut cmd cmd_test_wolftpm_pcr_read
+    => ut cmd cmd_test_wolftpm_pcr_extend
+
+Running Python Tests
+~~~~~~~~~~~~~~~~~~~~
+
+The Python tests require pytest and can be run against real hardware or QEMU
+with swtpm. First, ensure swtpm is running (see QEMU instructions above).
+
+To run all wolfTPM Python tests::
+
+    # From the U-Boot root directory
+    ./test/py/test.py --bd qemu_arm64 -k test_wolftpm
+
+To run individual Python tests::
+
+    ./test/py/test.py --bd qemu_arm64 -k test_wolftpm_autostart
+    ./test/py/test.py --bd qemu_arm64 -k test_wolftpm_caps
+    ./test/py/test.py --bd qemu_arm64 -k test_wolftpm_pcr_read
+
+To skip wolfTPM tests (e.g., when no TPM hardware is available), set the
+environment variable in your board configuration::
+
+    env__wolftpm_device_test_skip = True
+
+Running Tests Manually in QEMU
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You can also test wolfTPM commands manually in QEMU:
+
+1. Start swtpm::
+
+     mkdir -p /tmp/mytpm
+     swtpm socket --tpm2 --tpmstate dir=/tmp/mytpm \
+       --ctrl type=unixio,path=/tmp/mytpm/swtpm-sock --log level=20
+
+2. Start QEMU with TPM::
+
+     qemu-system-aarch64 -machine virt -cpu cortex-a57 -m 1024 \
+       -bios u-boot.bin \
+       -chardev socket,id=chrtpm,path=/tmp/mytpm/swtpm-sock \
+       -tpmdev emulator,id=tpm0,chardev=chrtpm \
+       -device tpm-tis-device,tpmdev=tpm0 \
+       -nographic
+
+3. Run wolfTPM commands at the U-Boot prompt::
+
+     => wolftpm autostart
+     => wolftpm caps
+     => wolftpm pcr_read 0 sha256
+     => wolftpm pcr_print
+     => wolftpm self_test full
+     => wolftpm clear TPM2_RH_LOCKOUT
+     => wolftpm dam_parameters 3 10 0
+
+Test Coverage
+~~~~~~~~~~~~~
+
+The test suite covers the following wolfTPM functionality:
+
++---------------------------+------------------------------------------+
+| Test Name                 | Description                              |
++===========================+==========================================+
+| wolftpm_autostart         | TPM initialization and startup           |
++---------------------------+------------------------------------------+
+| wolftpm_init              | TPM device initialization                |
++---------------------------+------------------------------------------+
+| wolftpm_self_test         | Full TPM self-test                       |
++---------------------------+------------------------------------------+
+| wolftpm_self_test_continue| Continue incomplete self-tests           |
++---------------------------+------------------------------------------+
+| wolftpm_caps              | Read TPM capabilities                    |
++---------------------------+------------------------------------------+
+| wolftpm_clear             | Clear TPM state                          |
++---------------------------+------------------------------------------+
+| wolftpm_pcr_read          | Read PCR values                          |
++---------------------------+------------------------------------------+
+| wolftpm_pcr_extend        | Extend PCR with digest                   |
++---------------------------+------------------------------------------+
+| wolftpm_pcr_print         | Print all PCR values                     |
++---------------------------+------------------------------------------+
+| wolftpm_dam_reset         | Reset DAM counter                        |
++---------------------------+------------------------------------------+
+| wolftpm_dam_parameters    | Set DAM parameters                       |
++---------------------------+------------------------------------------+
+| wolftpm_change_auth       | Change hierarchy password                |
++---------------------------+------------------------------------------+
+| wolftpm_info              | Display TPM info                         |
++---------------------------+------------------------------------------+
+| wolftpm_state             | Display TPM state                        |
++---------------------------+------------------------------------------+

@@ -12,6 +12,7 @@
 #include <wolftpm/tpm2.h>
 #include <wolftpm/tpm2_wrap.h>
 #include <wolftpm/tpm2_packet.h>
+#include <hal/tpm_io.h>
 #include <stdio.h>
 #include <string.h>
 #include <log.h>
@@ -121,6 +122,7 @@ int TPM2_PCRs_Print(void)
 
 int TPM2_Init_Device(WOLFTPM2_DEV* dev, void* userCtx)
 {
+    /* Use TPM2_IoCb callback which calls TPM2_IoCb_Uboot_SPI for packet-level access */
     int rc = wolfTPM2_Init(dev, TPM2_IoCb, userCtx);
     log_debug("tpm2 init: rc = %d (%s)\n", rc, TPM2_GetRCString(rc));
     return rc;

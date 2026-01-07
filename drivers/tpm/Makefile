@@ -14,3 +14,12 @@ obj-$(CONFIG_TPM2_TIS_SPI) += tpm2_tis_core.o tpm2_tis_spi.o
 obj-$(CONFIG_TPM2_TIS_I2C) += tpm2_tis_core.o tpm2_tis_i2c.o
 obj-$(CONFIG_TPM2_FTPM_TEE) += tpm2_ftpm_tee.o
 obj-$(CONFIG_TPM2_MMIO) += tpm2_tis_core.o tpm2_tis_mmio.o
+
+# wolfTPM helper functions
+ifeq ($(CONFIG_TPM_WOLF),y)
+ccflags-y += -Ilib/wolftpm \
+             -Iinclude/configs \
+             -DWOLFTPM_USER_SETTINGS \
+             -DWOLFTPM2_NO_WOLFCRYPT
+obj-y += wolftpm_common.o
+endif

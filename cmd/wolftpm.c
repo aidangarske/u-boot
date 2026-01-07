@@ -33,11 +33,24 @@
 #include <log.h>
 #include <string.h>
 
+/* Firmware update info structure for Infineon TPM */
+#ifdef WOLFTPM_FIRMWARE_UPGRADE
+#if defined(WOLFTPM_SLB9672) || defined(WOLFTPM_SLB9673)
+typedef struct {
+    byte*  manifest_buf;
+    byte*  firmware_buf;
+    size_t manifest_bufSz;
+    size_t firmware_bufSz;
+} fw_info_t;
+#endif
+#endif
+
 /******************************************************************************/
 /* --- BEGIN Common Commands -- */
 /******************************************************************************/
 
-static int do_tpm2_device(void* userCtx, int argc, char *argv[])
+static int do_tpm2_device(struct cmd_tbl *cmdtp, int flag,
+    int argc, char *const argv[])
 {
     int rc;
     unsigned long num;
@@ -61,7 +74,8 @@ static int do_tpm2_device(void* userCtx, int argc, char *argv[])
     return rc;
 }
 
-static int do_tpm2_info(void* userCtx, int argc, char *argv[])
+static int do_tpm2_info(struct cmd_tbl *cmdtp, int flag,
+    int argc, char *const argv[])
 {
     int rc;
     char buf[80];
@@ -90,7 +104,8 @@ static int do_tpm2_info(void* userCtx, int argc, char *argv[])
     return rc;
 }
 
-static int do_tpm2_state(void* userCtx, int argc, char *argv[])
+static int do_tpm2_state(struct cmd_tbl *cmdtp, int flag, 
+    int argc, char *const argv[])
 {
     int rc;
     char buf[80];
@@ -119,7 +134,8 @@ static int do_tpm2_state(void* userCtx, int argc, char *argv[])
     return rc;
 }
 
-static int do_tpm2_init(void* userCtx, int argc, char *argv[])
+static int do_tpm2_init(struct cmd_tbl *cmdtp, int flag, int argc,
+    char *const argv[])
 {
     WOLFTPM2_DEV dev;
 
@@ -128,11 +144,12 @@ static int do_tpm2_init(void* userCtx, int argc, char *argv[])
     }
 
     /* Init the TPM2 device */
-    return TPM2_Init_Device(&dev, userCtx);
+    return TPM2_Init_Device(&dev, NULL);
 }
 
 
-static int do_tpm2_autostart(void* userCtx, int argc, char *argv[])
+static int do_tpm2_autostart(struct cmd_tbl *cmdtp, int flag, int argc,
+    char *const argv[])
 {
     int rc;
     WOLFTPM2_DEV dev;
@@ -142,7 +159,7 @@ static int do_tpm2_autostart(void* userCtx, int argc, char *argv[])
     }
 
     /* Init the TPM2 device */
-    rc = TPM2_Init_Device(&dev, userCtx);
+    rc = TPM2_Init_Device(&dev, NULL);
     if (rc == TPM_RC_SUCCESS) {
         /* Perform a startup clear
         * doStartup=1: Just starts up the TPM */
@@ -175,7 +192,8 @@ static int do_tpm2_autostart(void* userCtx, int argc, char *argv[])
 /* --- START TPM 2.0 Commands -- */
 /******************************************************************************/
 
-static int do_tpm2_wrapper_getcapsargs(void* userCtx, int argc, char *argv[])
+static int do_tpm2_wrapper_getcapsargs(struct cmd_tbl *cmdtp, int flag, 
+    int argc, char *const argv[])
 {
     GetCapability_In  in;
     GetCapability_Out out;
@@ -220,7 +238,8 @@ static int do_tpm2_wrapper_getcapsargs(void* userCtx, int argc, char *argv[])
     return rc;
 }
 
-static int do_tpm2_wrapper_capsargs(void* userCtx, int argc, char *argv[])
+static int do_tpm2_wrapper_capsargs(struct cmd_tbl *cmdtp, int flag,
+    int argc, char *const argv[])
 {
     int rc;
     WOLFTPM2_DEV dev;
@@ -231,7 +250,7 @@ static int do_tpm2_wrapper_capsargs(void* userCtx, int argc, char *argv[])
     }
 
     /* Init the TPM2 device */
-    rc = TPM2_Init_Device(&dev, userCtx);
+    rc = TPM2_Init_Device(&dev, NULL);
     if (rc == TPM_RC_SUCCESS) {
         rc = wolfTPM2_GetCapabilities(&dev, &caps);
     }
@@ -273,7 +292,8 @@ static int do_tpm2_wrapper_capsargs(void* userCtx, int argc, char *argv[])
 
 #ifdef WOLFTPM_FIRMWARE_UPGRADE
 #if defined(WOLFTPM_SLB9672) || defined(WOLFTPM_SLB9673)
-static int do_tpm2_firmware_update(void* userCtx, int argc, char *argv[])
+static int do_tpm2_firmware_update(struct cmd_tbl *cmdtp, int flag,
+    int argc, char *const argv[])
 {
     int rc;
     WOLFTPM2_DEV dev;
@@ -316,7 +336,7 @@ static int do_tpm2_firmware_update(void* userCtx, int argc, char *argv[])
     printf("\tFirmware Address: 0x%lx (size: %zu)\n",
         firmware_addr, firmware_sz);
 
-    rc = TPM2_Init_Device(&dev, userCtx);
+    rc = TPM2_Init_Device(&dev, NULL);
     if (rc == TPM_RC_SUCCESS) {
         rc = wolfTPM2_GetCapabilities(&dev, &caps);
     }
@@ -373,7 +393,8 @@ static int do_tpm2_firmware_update(void* userCtx, int argc, char *argv[])
     return rc;
 }
 
-static int do_tpm2_firmware_cancel(void* userCtx, int argc, char *argv[])
+static int do_tpm2_firmware_cancel(struct cmd_tbl *cmdtp, int flag, 
+    int argc, char *const argv[])
 {
     int rc;
     WOLFTPM2_DEV dev;
@@ -385,7 +406,7 @@ static int do_tpm2_firmware_cancel(void* userCtx, int argc, char *argv[])
     }
 
     /* Init the TPM2 device */
-    rc = TPM2_Init_Device(&dev, userCtx);
+    rc = TPM2_Init_Device(&dev, NULL);
     if (rc == TPM_RC_SUCCESS) {
         /* Setup command size in header */
         val16 = TPM2_HEADER_SIZE + 2;
@@ -410,7 +431,8 @@ static int do_tpm2_firmware_cancel(void* userCtx, int argc, char *argv[])
 #endif /* WOLFTPM_SLB9672 || WOLFTPM_SLB9673 */
 #endif /* WOLFTPM_FIRMWARE_UPGRADE */
 
-static int do_tpm2_startup(void* userCtx, int argc, char *const argv[])
+static int do_tpm2_startup(struct cmd_tbl *cmdtp, int flag,
+    int argc, char *const argv[])
 {
     int rc;
     WOLFTPM2_DEV dev;
@@ -433,7 +455,7 @@ static int do_tpm2_startup(void* userCtx, int argc, char *const argv[])
     memset(&shutdownIn, 0, sizeof(shutdownIn));
 
     /* Init the TPM2 device */
-    rc = TPM2_Init_Device(&dev, userCtx);
+    rc = TPM2_Init_Device(&dev, NULL);
     if (rc != TPM_RC_SUCCESS) return rc;
 
     if (!strcmp(argv[1], "TPM2_SU_CLEAR")) {
@@ -482,7 +504,8 @@ static int do_tpm2_startup(void* userCtx, int argc, char *const argv[])
     return rc;
 }
 
-static int do_tpm2_selftest(void* userCtx, int argc, char *const argv[])
+static int do_tpm2_selftest(struct cmd_tbl *cmdtp, int flag,
+    int argc, char *const argv[])
 {
     int rc;
     WOLFTPM2_DEV dev;
@@ -494,7 +517,7 @@ static int do_tpm2_selftest(void* userCtx, int argc, char *const argv[])
     }
 
     /* Init the TPM2 device */
-    rc = TPM2_Init_Device(&dev, userCtx);
+    rc = TPM2_Init_Device(&dev, NULL);
     if (rc == TPM_RC_SUCCESS) {
         if (!strcmp(argv[1], "full")) {
             fullTest = YES;
@@ -531,7 +554,8 @@ static int do_tpm2_selftest(void* userCtx, int argc, char *const argv[])
     return rc;
 }
 
-static int do_tpm2_clear(void* userCtx, int argc, char *const argv[])
+static int do_tpm2_clear(struct cmd_tbl *cmdtp, int flag,
+    int argc, char *const argv[])
 {
     int rc;
     WOLFTPM2_DEV dev;
@@ -552,7 +576,7 @@ static int do_tpm2_clear(void* userCtx, int argc, char *const argv[])
     }
 
     /* Init the TPM2 device */
-    rc = TPM2_Init_Device(&dev, userCtx);
+    rc = TPM2_Init_Device(&dev, NULL);
     if (rc == TPM_RC_SUCCESS) {
         /* Set up clear */
         memset(&clearIn, 0, sizeof(clearIn));
@@ -574,7 +598,8 @@ static int do_tpm2_clear(void* userCtx, int argc, char *const argv[])
     return rc;
 }
 
-static int do_tpm2_pcr_extend(void* userCtx, int argc, char *const argv[])
+static int do_tpm2_pcr_extend(struct cmd_tbl *cmdtp, int flag,
+    int argc, char *const argv[])
 {
     int rc;
     WOLFTPM2_DEV dev;
@@ -621,7 +646,7 @@ static int do_tpm2_pcr_extend(void* userCtx, int argc, char *const argv[])
         (unsigned int)pcrIndex, TPM2_GetAlgName(algo));
 
     /* Init the TPM2 device */
-    rc = TPM2_Init_Device(&dev, userCtx);
+    rc = TPM2_Init_Device(&dev, NULL);
     if (rc != TPM_RC_SUCCESS) {
         unmap_sysmem(digest);
         return rc;
@@ -642,7 +667,8 @@ static int do_tpm2_pcr_extend(void* userCtx, int argc, char *const argv[])
     return rc;
 }
 
-static int do_tpm2_pcr_read(void* userCtx, int argc, char *const argv[])
+static int do_tpm2_pcr_read(struct cmd_tbl *cmdtp, int flag,
+    int argc, char *const argv[])
 {
     int rc;
     WOLFTPM2_DEV dev;
@@ -688,7 +714,7 @@ static int do_tpm2_pcr_read(void* userCtx, int argc, char *const argv[])
         (unsigned int)pcrIndex, TPM2_GetAlgName(algo));
 
     /* Init the TPM2 device */
-    rc = TPM2_Init_Device(&dev, userCtx);
+    rc = TPM2_Init_Device(&dev, NULL);
     if (rc != TPM_RC_SUCCESS) {
         unmap_sysmem(digest);
         return rc;
@@ -709,7 +735,8 @@ static int do_tpm2_pcr_read(void* userCtx, int argc, char *const argv[])
     return rc;
 }
 
-static int do_tpm2_pcr_allocate(void* userCtx, int argc, char *const argv[])
+static int do_tpm2_pcr_allocate(struct cmd_tbl *cmdtp, int flag,
+    int argc, char *const argv[])
 {
     int rc;
     WOLFTPM2_DEV dev;
@@ -723,7 +750,7 @@ static int do_tpm2_pcr_allocate(void* userCtx, int argc, char *const argv[])
     }
 
     /* Init the TPM2 device */
-    rc = TPM2_Init_Device(&dev, userCtx);
+    rc = TPM2_Init_Device(&dev, NULL);
     if (rc != TPM_RC_SUCCESS) return rc;
 
     /* Setup PCR Allocation command */
@@ -796,7 +823,7 @@ static int do_tpm2_pcr_allocate(void* userCtx, int argc, char *const argv[])
 * encrypted in transit over the bus: "a session is required to protect
 * the new platform auth" */
 #ifndef WOLFTPM2_NO_WOLFCRYPT
-static int TPM2_PCR_SetAuth(void* userCtx, int argc, char *argv[],
+static int TPM2_PCR_SetAuth(int argc, char *const argv[],
     int isPolicy)
 {
     int rc;
@@ -814,7 +841,7 @@ static int TPM2_PCR_SetAuth(void* userCtx, int argc, char *argv[],
     }
 
     /* Init the TPM2 device for value/policy */
-    rc = TPM2_Init_Device(&dev, userCtx);
+    rc = TPM2_Init_Device(&dev, NULL);
     if (rc != TPM_RC_SUCCESS) return rc;
 
     /* Start the session */
@@ -885,17 +912,20 @@ static int TPM2_PCR_SetAuth(void* userCtx, int argc, char *argv[],
     return rc;
 }
 
-static int do_tpm2_pcr_setauthpolicy(void* userCtx, int argc, char *argv[])
+static int do_tpm2_pcr_setauthpolicy(struct cmd_tbl *cmdtp, int flag,
+    int argc, char *const argv[])
 {
-    return TPM2_PCR_SetAuth(userCtx, argc, argv, YES);
+    return TPM2_PCR_SetAuth(argc, argv, YES);
 }
 
-static int do_tpm2_pcr_setauthvalue(void* userCtx, int argc, char *argv[])
+static int do_tpm2_pcr_setauthvalue(struct cmd_tbl *cmdtp, int flag,
+    int argc, char *const argv[])
 {
-    return TPM2_PCR_SetAuth(userCtx, argc, argv, NO);
+    return TPM2_PCR_SetAuth(argc, argv, NO);
 }
 
-static int do_tpm2_change_auth(void* userCtx, int argc, char *const argv[])
+static int do_tpm2_change_auth(struct cmd_tbl *cmdtp, int flag,
+    int argc, char *const argv[])
 {
     int rc;
     WOLFTPM2_DEV dev;
@@ -913,7 +943,7 @@ static int do_tpm2_change_auth(void* userCtx, int argc, char *const argv[])
     }
 
     /* Init the TPM2 device */
-    rc = TPM2_Init_Device(&dev, userCtx);
+    rc = TPM2_Init_Device(&dev, NULL);
     if (rc != TPM_RC_SUCCESS) return rc;
 
     memset(&in, 0, sizeof(in));
@@ -988,7 +1018,7 @@ static int do_tpm2_change_auth(void* userCtx, int argc, char *const argv[])
 }
 #endif /* !WOLFTPM2_NO_WOLFCRYPT */
 
-static int do_tpm2_pcr_print(void* userCtx, int argc, char *argv[])
+static int do_tpm2_pcr_print(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 {
     int rc;
     WOLFTPM2_DEV dev;
@@ -999,7 +1029,7 @@ static int do_tpm2_pcr_print(void* userCtx, int argc, char *argv[])
     }
 
     /* Init the TPM2 device */
-    rc = TPM2_Init_Device(&dev, userCtx);
+    rc = TPM2_Init_Device(&dev, NULL);
     if (rc == TPM_RC_SUCCESS) {
         /* Print the current PCR state */
         TPM2_PCRs_Print();
@@ -1011,7 +1041,8 @@ static int do_tpm2_pcr_print(void* userCtx, int argc, char *argv[])
     return rc;
 }
 
-static int do_tpm2_dam_reset(void* userCtx, int argc, char *const argv[])
+static int do_tpm2_dam_reset(struct cmd_tbl *cmdtp, int flag,
+    int argc, char *const argv[])
 {
     int rc;
     WOLFTPM2_DEV dev;
@@ -1032,7 +1063,7 @@ static int do_tpm2_dam_reset(void* userCtx, int argc, char *const argv[])
     }
 
     /* Init the TPM2 device */
-    rc = TPM2_Init_Device(&dev, userCtx);
+    rc = TPM2_Init_Device(&dev, NULL);
     if (rc == TPM_RC_SUCCESS) {
         /* set lock handle */
         memset(&in, 0, sizeof(in));
@@ -1058,7 +1089,8 @@ static int do_tpm2_dam_reset(void* userCtx, int argc, char *const argv[])
     return rc;
 }
 
-static int do_tpm2_dam_parameters(void* userCtx, int argc, char *const argv[])
+static int do_tpm2_dam_parameters(struct cmd_tbl *cmdtp, int flag,
+    int argc, char *const argv[])
 {
     int rc;
     WOLFTPM2_DEV dev;
@@ -1080,7 +1112,7 @@ static int do_tpm2_dam_parameters(void* userCtx, int argc, char *const argv[])
     }
 
     /* Init the TPM2 device */
-    rc = TPM2_Init_Device(&dev, userCtx);
+    rc = TPM2_Init_Device(&dev, NULL);
     if (rc == TPM_RC_SUCCESS) {
         /* Set parameters */
         memset(&in, 0, sizeof(in));
@@ -1107,10 +1139,10 @@ static int do_tpm2_dam_parameters(void* userCtx, int argc, char *const argv[])
                 TPM2_GetRCString(rc));
         }
 
-        log("Changing dictionary attack parameters:\n");
-        log("  maxTries: %u\n", in.newMaxTries);
-        log("  recoveryTime: %u\n", in.newRecoveryTime);
-        log("  lockoutRecovery: %u\n", in.lockoutRecovery);
+        printf("Changing dictionary attack parameters:\n");
+        printf("  maxTries: %u\n", in.newMaxTries);
+        printf("  recoveryTime: %u\n", in.newRecoveryTime);
+        printf("  lockoutRecovery: %u\n", in.lockoutRecovery);
     }
     wolfTPM2_Cleanup(&dev);
 
@@ -1156,8 +1188,23 @@ struct cmd_tbl *get_wolftpm_commands(unsigned int *size)
 	return wolftpm_cmds;
 }
 
+static int do_wolftpm(struct cmd_tbl *cmdtp, int flag, int argc,
+		      char *const argv[])
+{
+	struct cmd_tbl *cmd;
+
+	if (argc < 2)
+		return CMD_RET_USAGE;
+
+	cmd = find_cmd_tbl(argv[1], wolftpm_cmds, ARRAY_SIZE(wolftpm_cmds));
+	if (!cmd)
+		return CMD_RET_USAGE;
+
+	return cmd->cmd(cmdtp, flag, argc - 1, argv + 1);
+}
+
 U_BOOT_CMD(
-    wolftpm,                /* name of cmd */
+    wolftpm,             /* name of cmd */
     CONFIG_SYS_MAXARGS,     /* max args    */
     1,                      /* repeatable  */
     do_wolftpm,             /* function    */

@@ -38,8 +38,11 @@ extern "C" {
 #undef  WOLFTPM2_NO_WOLFCRYPT
 #define WOLFTPM2_NO_WOLFCRYPT
 
-/* For U-boot with Linux device */
+/* Use Linux device mode - this bypasses wolfTPM's TIS layer and sends full packets */
 #define WOLFTPM_LINUX_DEV
+
+/* Enable example HAL for TPM IO callbacks */
+#define WOLFTPM_EXAMPLE_HAL
 
 #define XSLEEP_MS(ms) udelay(ms * 1000)
 
@@ -49,12 +52,13 @@ extern "C" {
 /* Do not include API's that use heap(), they are not required */
 #define WOLFTPM2_NO_HEAP
 
-/* Debugging */
-#ifdef CONFIG_TPM_LOG
-    #define DEBUG_WOLFTPM
-    #define WOLFTPM_DEBUG_VERBOSE
-    #define WOLFTPM_DEBUG_IO
-#endif
+/* Debugging - uncomment to enable verbose debug output */
+/* #define DEBUG_WOLFTPM */
+/* #define WOLFTPM_DEBUG_VERBOSE */
+/* #define WOLFTPM_DEBUG_IO */
+
+/* Enable debug output (comment out for production) */
+#define DEBUG_WOLFTPM
 
 /******************************************************************************/
 /* --- END wolfTPM U-boot Settings -- */
