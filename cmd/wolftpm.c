@@ -49,6 +49,8 @@ typedef struct {
 /* --- BEGIN Common Commands -- */
 /******************************************************************************/
 
+#ifdef WOLFTPM_LINUX_DEV
+/* Use U-Boot's TPM device model for device/info/state when in Linux dev mode */
 static int do_tpm2_device(struct cmd_tbl *cmdtp, int flag,
     int argc, char *const argv[])
 {
@@ -88,7 +90,8 @@ static int do_tpm2_info(struct cmd_tbl *cmdtp, int flag,
     /* Init the TPM2 device */
     rc = get_tpm(&dev);
     if (rc == 0) {
-        /* Get the current TPM's description */
+        /* Get the current TPM's description
+         * tpm_get_desc returns the number of bytes written on success */
         rc = tpm_get_desc(dev, buf, sizeof(buf));
         if (rc < 0) {
             log_debug("Couldn't get TPM info (%d)\n", rc);
@@ -96,6 +99,7 @@ static int do_tpm2_info(struct cmd_tbl *cmdtp, int flag,
         }
         else {
             log_debug("%s\n", buf);
+            rc = 0; /* Success - return 0, not byte count */
         }
     }
 
@@ -104,7 +108,7 @@ static int do_tpm2_info(struct cmd_tbl *cmdtp, int flag,
     return rc;
 }
 
-static int do_tpm2_state(struct cmd_tbl *cmdtp, int flag, 
+static int do_tpm2_state(struct cmd_tbl *cmdtp, int flag,
     int argc, char *const argv[])
 {
     int rc;
@@ -118,14 +122,20 @@ static int do_tpm2_state(struct cmd_tbl *cmdtp, int flag,
     /* Init the TPM2 device */
     rc = get_tpm(&dev);
     if (rc == 0) {
-        /* Get the current TPM's state */
+        /* Get the current TPM's state
+         * tpm_report_state may return -ENOSYS if not implemented by driver */
         rc = tpm_report_state(dev, buf, sizeof(buf));
-        if (rc < 0) {
+        if (rc == -ENOSYS) {
+            log_debug("TPM state reporting not supported by driver\n");
+            rc = 0; /* Not an error, just not supported */
+        }
+        else if (rc < 0) {
             log_debug("Couldn't get TPM state (%d)\n", rc);
             rc = CMD_RET_FAILURE;
         }
         else {
             log_debug("%s\n", buf);
+            rc = 0; /* Success - return 0, not byte count */
         }
     }
 
@@ -133,6 +143,114 @@ static int do_tpm2_state(struct cmd_tbl *cmdtp, int flag,
 
     return rc;
 }
+
+#else /* !WOLFTPM_LINUX_DEV - Native SPI mode implementations */
+
+static int do_tpm2_device(struct cmd_tbl *cmdtp, int flag,
+    int argc, char *const argv[])
+{
+    WOLFTPM2_DEV dev;
+    WOLFTPM2_CAPS caps;
+    int rc;
+
+    /* Expected 1 arg only in native SPI mode (no device switching) */
+    if (argc != 1) {
+        return CMD_RET_USAGE;
+    }
+
+    /* Try to initialize and get device info */
+    rc = wolfTPM2_Init(&dev, TPM2_IoCb, NULL);
+    if (rc == 0) {
+        rc = wolfTPM2_GetCapabilities(&dev, &caps);
+        if (rc == 0) {
+            printf("TPM Device 0: %s (%s) FW=%d.%d\n",
+                   caps.mfgStr, caps.vendorStr,
+                   caps.fwVerMajor, caps.fwVerMinor);
+        }
+        wolfTPM2_Cleanup(&dev);
+    }
+
+    if (rc != 0) {
+        printf("No TPM device found (rc=%d: %s)\n", rc, TPM2_GetRCString(rc));
+        return CMD_RET_FAILURE;
+    }
+
+    return 0;
+}
+
+static int do_tpm2_info(struct cmd_tbl *cmdtp, int flag,
+    int argc, char *const argv[])
+{
+    WOLFTPM2_DEV dev;
+    WOLFTPM2_CAPS caps;
+    int rc;
+
+    if (argc != 1) {
+        return CMD_RET_USAGE;
+    }
+
+    /* Init the TPM2 device */
+    rc = wolfTPM2_Init(&dev, TPM2_IoCb, NULL);
+    if (rc == 0) {
+        rc = wolfTPM2_GetCapabilities(&dev, &caps);
+        if (rc == 0) {
+            printf("TPM 2.0: %s (%s)\n", caps.mfgStr, caps.vendorStr);
+            printf("  Firmware: %d.%d (0x%08X)\n",
+                   caps.fwVerMajor, caps.fwVerMinor, caps.fwVerVendor);
+            printf("  Type: 0x%08X\n", caps.tpmType);
+        }
+        wolfTPM2_Cleanup(&dev);
+    }
+
+    if (rc != 0) {
+        printf("Couldn't get TPM info (rc=%d: %s)\n", rc, TPM2_GetRCString(rc));
+        return CMD_RET_FAILURE;
+    }
+
+    log_debug("tpm2 info: rc = %d (%s)\n", rc, TPM2_GetRCString(rc));
+    return 0;
+}
+
+static int do_tpm2_state(struct cmd_tbl *cmdtp, int flag,
+    int argc, char *const argv[])
+{
+    WOLFTPM2_DEV dev;
+    WOLFTPM2_CAPS caps;
+    int rc;
+
+    if (argc != 1) {
+        return CMD_RET_USAGE;
+    }
+
+    /* Init the TPM2 device */
+    rc = wolfTPM2_Init(&dev, TPM2_IoCb, NULL);
+    if (rc == 0) {
+        rc = wolfTPM2_GetCapabilities(&dev, &caps);
+        if (rc == 0) {
+            printf("TPM State:\n");
+            printf("  Manufacturer: %s\n", caps.mfgStr);
+            printf("  Vendor: %s\n", caps.vendorStr);
+            printf("  Firmware: %d.%d\n", caps.fwVerMajor, caps.fwVerMinor);
+#if defined(WOLFTPM_SLB9672) || defined(WOLFTPM_SLB9673)
+            printf("  Mode: Infineon SLB967x (Native SPI)\n");
+            printf("  OpMode: %d\n", caps.opMode);
+#else
+            printf("  Mode: Native wolfTPM SPI\n");
+#endif
+        }
+        wolfTPM2_Cleanup(&dev);
+    }
+
+    if (rc != 0) {
+        printf("Couldn't get TPM state (rc=%d: %s)\n", rc, TPM2_GetRCString(rc));
+        return CMD_RET_FAILURE;
+    }
+
+    log_debug("tpm2 state: rc = %d (%s)\n", rc, TPM2_GetRCString(rc));
+    return 0;
+}
+
+#endif /* WOLFTPM_LINUX_DEV */
 
 static int do_tpm2_init(struct cmd_tbl *cmdtp, int flag, int argc,
     char *const argv[])
@@ -164,7 +282,10 @@ static int do_tpm2_autostart(struct cmd_tbl *cmdtp, int flag, int argc,
         /* Perform a startup clear
         * doStartup=1: Just starts up the TPM */
         rc = wolfTPM2_Reset(&dev, 0, 1);
-        if (rc != TPM_RC_SUCCESS && rc != TPM_RC_INITIALIZE) {
+        /* TPM_RC_INITIALIZE means already started - treat as success */
+        if (rc == TPM_RC_INITIALIZE) {
+            rc = TPM_RC_SUCCESS;
+        } else if (rc != TPM_RC_SUCCESS) {
             log_debug("wolfTPM2_Reset failed 0x%x: %s\n", rc,
                 TPM2_GetRCString(rc));
         }

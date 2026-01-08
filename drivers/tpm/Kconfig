@@ -200,6 +200,16 @@ config TPM2_EVENT_LOG_SIZE
 	  allocated twice. One for the eventlog it self and one for the
 	  configuration table that is required from the TCG2 spec
 
+config WOLFTPM_LINUX_DEV
+    bool "Use device-level TPM interface (bypass wolfTPM TIS layer)"
+    depends on TPM_V2 && TPM_WOLF
+    default y
+    help
+      Enable wolfTPM to use the underlying TPM driver instead of its own
+      TIS (TPM Interface Specification) layer. On U-Boot, this uses the
+      U-Boot TPM driver model (tpm_xfer). On Linux, this uses /dev/tpm0.
+      This is the recommended setting for U-Boot.
+
 config WOLFTPM_SLB9672
     bool "Enable support for Infineon SLB9672 TPM"
     depends on TPM_V2 && TPM_WOLF

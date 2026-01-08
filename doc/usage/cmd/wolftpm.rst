@@ -67,40 +67,37 @@ Enable wolfTPM support in U-Boot by adding these options to your board's defconf
   CONFIG_TPM_WOLF=y
   CONFIG_CMD_WOLFTPM=y
 
+  if with __LINUX__:
+    CONFIG_TPM_LINUX_DEV=y
+
 Or use ``make menuconfig`` and enable:
 
 Enabling Debug Output
 ~~~~~~~~~~~~~~~~~~~~~
 
-wolfTPM commands use U-Boot's logging system. To see debug output at runtime,
-use the ``log level`` command at the U-Boot prompt::
+wolfTPM commands use U-Boot's logging system (``log_debug()``). To enable debug
+output, you must first enable the logging subsystem in your board's defconfig::
 
-    => log level 7
+    CONFIG_LOG=y
+    CONFIG_LOG_MAX_LEVEL=7
+    CONFIG_LOG_DEFAULT_LEVEL=7
+
+Or via ``make menuconfig``:
+
+- Console → Enable logging support
+- Console → Maximum log level to record = 7
+- Console → Default logging level to display = 7
 
 Log levels:
+- 7 = DEBUG (to show wolfTPM command debug output)
 
-- 4 = WARNING (default)
-- 6 = INFO
-- 7 = DEBUG (shows wolfTPM command debug output)
-- 9 = DEBUG_IO (very verbose)
-
-Example with debug enabled::
-
-    => log level 7
-    => wolftpm autostart
-    tpm2 init: rc = 0 (Success)
-    wolfTPM2_Reset: rc = 0 (Success)
-    wolfTPM2_SelfTest: rc = 0 (Success)
-
-To make debug level persistent, add to your board's environment::
-
-    => setenv loglevel 7
-    => saveenv
+**Note:** Without ``CONFIG_LOG=y``, the ``log level`` command will not exist
+and ``log_debug()`` calls will produce no output.
 
 wolfTPM Library Debug
 ^^^^^^^^^^^^^^^^^^^^^
 
-For lower-level wolfTPM library debug output, edit
+For lower-level wolfTPM library debug output (TPM protocol messages), edit
 ``include/configs/user_settings.h`` and uncomment::
 
     #define DEBUG_WOLFTPM           /* Basic wolfTPM debug messages */
@@ -112,9 +109,15 @@ After enabling, rebuild U-Boot::
     make clean
     make -j4
 
+Menuconfig Paths
+^^^^^^^^^^^^^^^^
+
+The following menuconfig paths are useful for wolfTPM:
+
 - Device Drivers → TPM → TPM 2.0 Support
 - Device Drivers → TPM → wolfTPM Support
 - Command line interface → Security commands → Enable wolfTPM commands
+- Console → Enable logging support (for ``log_debug()`` output)
 
 Building and Running wolfTPM with U-Boot using QEMU
 ---------------------------------------------------
@@ -206,7 +209,7 @@ or on real hardware. To run all wolfTPM tests::
     ./u-boot -T
 
     # In U-Boot sandbox, run the unit tests
-    => ut cmd wolftpm
+    => ut cmd
 
 Individual tests can be run by name::
 
@@ -296,6 +299,8 @@ The test suite covers the following wolfTPM functionality:
 +---------------------------+------------------------------------------+
 | wolftpm_pcr_print         | Print all PCR values                     |
 +---------------------------+------------------------------------------+
+| wolftpm_pcr_allocate      | Reconfigure PCR bank algorithm           |
++---------------------------+------------------------------------------+
 | wolftpm_dam_reset         | Reset DAM counter                        |
 +---------------------------+------------------------------------------+
 | wolftpm_dam_parameters    | Set DAM parameters                       |
@@ -306,3 +311,72 @@ The test suite covers the following wolfTPM functionality:
 +---------------------------+------------------------------------------+
 | wolftpm_state             | Display TPM state                        |
 +---------------------------+------------------------------------------+
+| wolftpm_device            | Show/set TPM device                      |
++---------------------------+------------------------------------------+
+| wolftpm_startup_clear     | TPM2_Startup with CLEAR mode             |
++---------------------------+------------------------------------------+
+| wolftpm_startup_state     | TPM2_Startup with STATE mode             |
++---------------------------+------------------------------------------+
+| wolftpm_startup_shutdown  | TPM2_Shutdown command                    |
++---------------------------+------------------------------------------+
+| wolftpm_get_capability    | Read TPM capabilities by property        |
++---------------------------+------------------------------------------+
+
+TODO: Commands Not Yet Tested
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The following commands are implemented in ``cmd/wolftpm.c`` but do not yet have
+test coverage due to special requirements:
+
++---------------------------+------------------------------------------+------------------+
+| Command                   | Description                              | Notes            |
++===========================+==========================================+==================+
+| pcr_setauthpolicy         | Set PCR authorization policy             | Requires         |
+|                           |                                          | wolfCrypt        |
++---------------------------+------------------------------------------+------------------+
+| pcr_setauthvalue          | Set PCR authorization value              | Requires         |
+|                           |                                          | wolfCrypt        |
++---------------------------+------------------------------------------+------------------+
+| firmware_update           | Update TPM firmware (Infineon only)      | Requires         |
+|                           |                                          | Infineon HW      |
++---------------------------+------------------------------------------+------------------+
+| firmware_cancel           | Cancel firmware update (Infineon only)   | Requires         |
+|                           |                                          | Infineon HW      |
++---------------------------+------------------------------------------+------------------+
+
+**Note:** The ``pcr_setauthpolicy`` and ``pcr_setauthvalue`` commands require
+``WOLFTPM2_NO_WOLFCRYPT`` to be undefined (i.e., wolfCrypt must be enabled).
+The ``firmware_update`` and ``firmware_cancel`` commands require Infineon
+SLB9672/SLB9673 hardware.
+
+To add tests for these commands:
+
+1. Add C unit test in ``test/cmd/wolftpm.c``::
+
+     static int cmd_test_wolftpm_<command>(struct unit_test_state *uts)
+     {
+         ut_assertok(run_command("wolftpm autostart", 0));
+         ut_assertok(run_command("wolftpm <command> <args>", 0));
+         return 0;
+     }
+     CMD_TEST(cmd_test_wolftpm_<command>, 0);
+
+2. Add Python test in ``test/py/tests/test_wolftpm.py``::
+
+     @pytest.mark.buildconfigspec('tpm_wolf')
+     def test_wolftpm_<command>(ubman):
+         force_init(ubman)
+         ubman.run_command('wolftpm <command> <args>')
+         output = ubman.run_command('echo $?')
+         assert output.endswith('0')
+
+TODO: Python Test Framework
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The Python tests in ``test/py/tests/test_wolftpm.py`` require additional setup
+for QEMU boards (external ``u-boot-test-flash``, ``u-boot-test-console``, etc.
+scripts). The C unit tests (``test/cmd/wolftpm.c``) provide equivalent coverage
+and work directly with ``ut cmd`` in U-Boot.
+
+**Status:** Python tests need verification with proper QEMU test infrastructure
+or deprecation in favor of C unit tests which are fully functional.

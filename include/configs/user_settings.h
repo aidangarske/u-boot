@@ -17,15 +17,21 @@ extern "C" {
 /* --- BEGIN wolfTPM U-boot Settings -- */
 /******************************************************************************/
 
+/* =========================================================================
+ * TPM Chip Configuration
+ * =========================================================================
+ *
+ * CONFIG_TPM_AUTODETECT: For swtpm/QEMU testing (no specific chip)
+ * !CONFIG_TPM_AUTODETECT: For real hardware (SLB9672/SLB9673)
+ */
 #ifdef CONFIG_TPM_AUTODETECT
     #define WOLFTPM_AUTODETECT
 #else
-    /* Firmware upgrade only supported
-    * by infineon SLB9672/SLB9673 use
-    * this for now */
+    /* Real hardware - Infineon SLB9672/SLB9673
+     * Firmware upgrade only supported by these chips */
     #define WOLFTPM_FIRMWARE_UPGRADE
     #define WOLFTPM_SLB9672
-    //#define WOLFTPM_SLB9673
+    /* #define WOLFTPM_SLB9673 */
 #endif
 
 /* Include delay.h and types.h for
@@ -38,11 +44,36 @@ extern "C" {
 #undef  WOLFTPM2_NO_WOLFCRYPT
 #define WOLFTPM2_NO_WOLFCRYPT
 
-/* Use Linux device mode - this bypasses wolfTPM's TIS layer and sends full packets */
-#define WOLFTPM_LINUX_DEV
+/* =========================================================================
+ * TPM Communication Mode Selection (Auto-detected based on chip type)
+ * =========================================================================
+ *
+ * For real SPI hardware (SLB9672/SLB9673):
+ *   - Uses wolfTPM's native TIS layer with raw SPI via tpm_io_uboot.c
+ *   - Requires CONFIG_SPI and CONFIG_DM_SPI enabled in U-Boot
+ *
+ * For swtpm/QEMU testing (no specific chip defined):
+ *   - Uses WOLFTPM_LINUX_DEV mode with U-Boot's TPM driver (tpm_xfer())
+ *   - Works with MMIO-based TPM via tpm2_tis_mmio.c
+ */
 
-/* Enable example HAL for TPM IO callbacks */
-#define WOLFTPM_EXAMPLE_HAL
+#if defined(WOLFTPM_SLB9672) || defined(WOLFTPM_SLB9673)
+    /* Real SPI hardware - use native wolfTPM TIS with raw SPI */
+    /* WOLFTPM_LINUX_DEV is NOT defined */
+    #define WOLFTPM_EXAMPLE_HAL
+
+    /* SPI bus and chip select for TPM
+     * Adjust these to match your hardware configuration */
+    #ifndef TPM_SPI_BUS
+        #define TPM_SPI_BUS 0
+    #endif
+    #ifndef TPM_SPI_CS
+        #define TPM_SPI_CS 1   /* Typical for Infineon on Pi: SPI0, CS1 */
+    #endif
+#else
+    /* swtpm/QEMU - use U-Boot's TPM driver (MMIO) */
+    #define WOLFTPM_LINUX_DEV
+#endif
 
 #define XSLEEP_MS(ms) udelay(ms * 1000)
 
