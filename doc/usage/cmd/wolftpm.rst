@@ -370,6 +370,55 @@ To add tests for these commands:
          output = ubman.run_command('echo $?')
          assert output.endswith('0')
 
+TODO: Testing on Raspberry Pi Hardware
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For testing with real TPM hardware (e.g., Infineon SLB9672 TPM HAT on Raspberry Pi):
+
+1. Build U-Boot for Raspberry Pi::
+
+     make distclean
+     export CROSS_COMPILE=aarch64-linux-gnu-
+     export ARCH=aarch64
+     make rpi_arm64_defconfig
+     make -j$(nproc)
+
+2. Backup current boot configuration::
+
+     sudo cp /boot/firmware/config.txt /boot/firmware/config.txt.backup
+
+3. Copy U-Boot to boot partition::
+
+     sudo cp u-boot.bin /boot/firmware/
+
+4. Edit ``/boot/firmware/config.txt`` and add::
+
+     # U-Boot for wolfTPM testing
+     enable_uart=1
+     kernel=u-boot.bin
+     arm_64bit=1
+
+5. Connect serial console (recommended) - USB-to-serial adapter on GPIO 14/15
+   (pins 8/10) at 115200 baud.
+
+6. Reboot and test at U-Boot prompt::
+
+     U-Boot> wolftpm device
+     U-Boot> wolftpm info
+     U-Boot> wolftpm autostart
+     U-Boot> wolftpm caps
+     U-Boot> wolftpm pcr_read 0 0x1000000 SHA256
+
+7. To restore normal Linux boot::
+
+     sudo cp /boot/firmware/config.txt.backup /boot/firmware/config.txt
+     sudo reboot
+
+**Note:** The Raspberry Pi build uses GPIO-based soft SPI for TPM communication.
+Standard SPI0 pins are used: GPIO 11 (SCLK), GPIO 10 (MOSI), GPIO 9 (MISO),
+GPIO 7 (CE1 for TPM). Adjust ``arch/arm/dts/bcm2711-rpi-4-b-u-boot.dtsi`` if
+your TPM HAT uses different GPIO pins.
+
 TODO: Python Test Framework
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
