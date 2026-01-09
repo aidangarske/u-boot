@@ -11,6 +11,7 @@
  * the U-boot firmware update command.
  */
 
+#include <configs/user_settings.h>
 #include <hash.h>
 #include <linux/types.h>
 #include <stdint.h>

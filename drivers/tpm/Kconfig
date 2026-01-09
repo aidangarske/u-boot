@@ -158,6 +158,14 @@ config TPM2_TIS_SANDBOX
 	  such as basic configuration, PCR extension and PCR read. Extended
 	  functionalities are not implemented.
 
+config TPM2_SPI_SANDBOX
+	bool "Enable sandbox TPM SPI emulator"
+	depends on TPM_V2 && SANDBOX && DM_SPI
+	help
+	  This driver emulates a TPM connected via SPI for sandbox testing.
+	  It implements the TPM TIS SPI protocol and can be used to test
+	  wolfTPM SPI HAL code without physical hardware.
+
 config TPM2_TIS_SPI
 	bool "Enable support for TPMv2.x SPI chips"
 	depends on TPM_V2 && DM_SPI

@@ -429,3 +429,127 @@ and work directly with ``ut cmd`` in U-Boot.
 
 **Status:** Python tests need verification with proper QEMU test infrastructure
 or deprecation in favor of C unit tests which are fully functional.
+
+Testing wolfTPM SPI Path in Sandbox
+-----------------------------------
+
+The sandbox build includes a TPM SPI emulator that tests the complete wolfTPM
+SPI communication path without requiring hardware. This validates the SPI HAL
+code path in ``lib/wolftpm/hal/tpm_io_uboot.c``.
+
+SPI Code Path
+~~~~~~~~~~~~~
+
+When testing in sandbox, the following code path is exercised::
+
+    wolftpm commands (cmd/wolftpm.c)
+           ↓
+    wolfTPM library (lib/wolftpm/)
+           ↓
+    SPI HAL (lib/wolftpm/hal/tpm_io_uboot.c)
+           ↓
+    U-Boot SPI API (spi_get_bus_and_cs, spi_xfer)
+           ↓
+    Sandbox SPI Master (drivers/spi/sandbox_spi.c)
+           ↓
+    TPM SPI Emulator (drivers/tpm/tpm_spi_sandbox.c)
+
+The TPM SPI emulator implements the TPM TIS (Trusted Platform Module Interface
+Specification) over SPI protocol:
+
+- 4-byte SPI header: ``[R/W|len-1][0xD4][addr_hi][addr_lo]``
+- Wait-state handling with ready byte
+- TIS register emulation (ACCESS, STS, FIFO, DID/VID, RID)
+- TIS state machine (IDLE → READY → RECEPTION → COMPLETION)
+
+Building Sandbox with SPI Support
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To build sandbox with TPM SPI emulator support::
+
+    make sandbox_defconfig
+    make -j$(nproc)
+
+The following configs are enabled by default in sandbox:
+
+- ``CONFIG_TPM=y``
+- ``CONFIG_TPM_V2=y``
+- ``CONFIG_TPM_WOLF=y``
+- ``CONFIG_CMD_WOLFTPM=y``
+- ``CONFIG_TPM2_SPI_SANDBOX=y``
+
+Running SPI Tests
+~~~~~~~~~~~~~~~~~
+
+**Important:** The sandbox TPM SPI device requires the ``-D`` flag to load the
+full device tree. Without this flag, the SPI bus will not be available.
+
+Run wolfTPM commands via SPI::
+
+    # Build sandbox
+    make sandbox_defconfig && make -j$(nproc)
+
+    # Run with full device tree
+    ./u-boot -D
+
+    # At U-Boot prompt, test wolfTPM SPI path
+    => wolftpm autostart
+    => wolftpm caps
+    => wolftpm info
+    => wolftpm pcr_read 0 0x1000000 SHA256
+    => wolftpm pcr_print
+
+Non-interactive testing::
+
+    # Single command
+    ./u-boot -D -c "wolftpm autostart"
+
+    # Multiple commands
+    ./u-boot -D -c "wolftpm autostart; wolftpm caps; wolftpm info"
+
+Expected output::
+
+    TPM SPI initialized: bus 0, cs 1
+    TPM2: Caps 0x30000697, Did 0x001d, Vid 0x15d1, Rid 0x36
+    TPM2_Startup pass
+    wolfTPM2_Reset complete
+    TPM2_SelfTest pass
+
+Enabling Debug Output
+~~~~~~~~~~~~~~~~~~~~~
+
+To see SPI-level debug messages, enable logging before running::
+
+    # At U-Boot prompt
+    => log level 7
+
+Or enable in defconfig::
+
+    CONFIG_LOG=y
+    CONFIG_LOG_MAX_LEVEL=7
+    CONFIG_LOG_DEFAULT_LEVEL=7
+
+For wolfTPM library-level SPI debug, edit ``include/configs/user_settings.h``::
+
+    #define DEBUG_WOLFTPM
+    #define WOLFTPM_DEBUG_IO    /* Shows SPI transfer details */
+
+Device Tree Configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The sandbox SPI TPM is defined in ``arch/sandbox/dts/sandbox.dtsi``::
+
+    &spi0 {
+        tpm_spi: tpm@1 {
+            reg = <1>;
+            compatible = "sandbox,tpm-spi";
+            spi-max-frequency = <10000000>;
+            sandbox,emul = <&tpm_spi_emul>;
+        };
+    };
+
+    tpm_spi_emul: tpm-spi-emul {
+        compatible = "sandbox,tpm-spi-emul";
+    };
+
+The emulator driver is in ``drivers/tpm/tpm_spi_sandbox.c``.

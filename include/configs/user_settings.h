@@ -40,7 +40,12 @@ extern "C" {
 #include <linux/types.h>
 #include <stdint.h>
 
-/* No wolfCrypt dependency */
+/* wolfCrypt disabled - pcr_setauthpolicy/pcr_setauthvalue not available
+ * To enable wolfCrypt, you would need to:
+ * 1. Uncomment the line below to undefine WOLFTPM2_NO_WOLFCRYPT
+ * 2. Add wolfCrypt source files to the U-Boot build (lib/Makefile)
+ * 3. Add wolfCrypt settings for embedded/no-OS use
+ */
 #undef  WOLFTPM2_NO_WOLFCRYPT
 #define WOLFTPM2_NO_WOLFCRYPT
 
@@ -71,7 +76,7 @@ extern "C" {
         #define TPM_SPI_CS 1   /* Typical for Infineon on Pi: SPI0, CS1 */
     #endif
 #else
-    /* swtpm/QEMU - use U-Boot's TPM driver (MMIO) */
+    /* swtpm/QEMU - use U-Boot's TPM driver with MMIO communication mode */
     #define WOLFTPM_LINUX_DEV
 #endif
 

@@ -70,8 +70,7 @@ ifeq ($(CONFIG_TPM_WOLF),y)
 ifeq ($(CONFIG_TPM_V2),y)
 ccflags-y += -Ilib/wolftpm \
              -Iinclude/configs \
-             -DWOLFTPM_USER_SETTINGS \
-             -DWOLFTPM2_NO_WOLFCRYPT
+             -DWOLFTPM_USER_SETTINGS
 obj-y += wolftpm/hal/tpm_io.o
 obj-$(CONFIG_WOLFTPM_LINUX_DEV) += wolftpm/src/tpm2_linux.o
 obj-y += wolftpm/src/tpm2.o

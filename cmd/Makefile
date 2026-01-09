@@ -196,8 +196,7 @@ ifeq ($(CONFIG_TPM_WOLF),y)
 ifeq ($(CONFIG_TPM_V2),y)
 ccflags-y += -Ilib/wolftpm \
              -Iinclude/configs \
-			 -DWOLFTPM_USER_SETTINGS \
-			 -DWOLFTPM2_NO_WOLFCRYPT
+             -DWOLFTPM_USER_SETTINGS
 obj-$(CONFIG_TPM_WOLF) += wolftpm.o
 endif
 else
