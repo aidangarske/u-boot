@@ -5,6 +5,15 @@
 #
 # Exit with error if a local exported symbol is found.
 # EXPORT_SYMBOL should be used for global symbols.
+#
+# NOTE: This check is skipped on macOS with older bash that lacks
+# associative arrays support (bash 4.0+). The check will run properly
+# on Linux build systems.
+
+# Check for bash 4+ (required for associative arrays)
+if [[ ${BASH_VERSINFO[0]} -lt 4 ]]; then
+    exit 0
+fi
 
 set -e
 

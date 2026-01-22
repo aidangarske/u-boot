@@ -68,12 +68,13 @@ extern "C" {
     #define WOLFTPM_EXAMPLE_HAL
 
     /* SPI bus and chip select for TPM
-     * Adjust these to match your hardware configuration */
+     * Official Raspberry Pi tpm-slb9670 overlay uses CE1 (GPIO7)
+     * This matches LetsTrust and most Infineon evaluation boards */
     #ifndef TPM_SPI_BUS
         #define TPM_SPI_BUS 0
     #endif
     #ifndef TPM_SPI_CS
-        #define TPM_SPI_CS 1   /* Typical for Infineon on Pi: SPI0, CS1 */
+        #define TPM_SPI_CS 1   /* CE1/GPIO7 - official RPi TPM overlay setting */
     #endif
 #else
     /* swtpm/QEMU - use U-Boot's TPM driver with MMIO communication mode */
@@ -82,19 +83,23 @@ extern "C" {
 
 #define XSLEEP_MS(ms) udelay(ms * 1000)
 
-/* Just poll without delay by default */
-#define XTPM_WAIT()
+/* Timeout configuration - reduce from default 1,000,000 to prevent long hangs */
+#define TPM_TIMEOUT_TRIES 10000
+
+/* Add small delay between poll attempts to avoid tight spin loop */
+#define XTPM_WAIT() udelay(100)
 
 /* Do not include API's that use heap(), they are not required */
 #define WOLFTPM2_NO_HEAP
 
-/* Debugging - uncomment to enable verbose debug output */
-/* #define DEBUG_WOLFTPM */
-/* #define WOLFTPM_DEBUG_VERBOSE */
-/* #define WOLFTPM_DEBUG_IO */
-
-/* Enable debug output (comment out for production) */
+/* Debugging - enable verbose debug output for troubleshooting */
 #define DEBUG_WOLFTPM
+#define WOLFTPM_DEBUG_VERBOSE
+#define WOLFTPM_DEBUG_IO
+#define WOLFTPM_DEBUG_TIMEOUT
+
+/* SPI Wait state checking - most TPMs use this */
+#define WOLFTPM_CHECK_WAIT_STATE
 
 /******************************************************************************/
 /* --- END wolfTPM U-boot Settings -- */
