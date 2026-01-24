@@ -83,8 +83,14 @@ extern "C" {
 
 #define XSLEEP_MS(ms) udelay(ms * 1000)
 
-/* Timeout configuration - reduce from default 1,000,000 to prevent long hangs */
-#define TPM_TIMEOUT_TRIES 10000
+/* Timeout configuration */
+#ifdef WOLFTPM_FIRMWARE_UPGRADE
+    /* Firmware update requires much longer timeout for TPM processing */
+    #define TPM_TIMEOUT_TRIES 2000000
+#else
+    /* Normal operations - reduce from default 1,000,000 to prevent long hangs */
+    #define TPM_TIMEOUT_TRIES 10000
+#endif
 
 /* Add small delay between poll attempts to avoid tight spin loop */
 #define XTPM_WAIT() udelay(100)
@@ -92,11 +98,11 @@ extern "C" {
 /* Do not include API's that use heap(), they are not required */
 #define WOLFTPM2_NO_HEAP
 
-/* Debugging - enable verbose debug output for troubleshooting */
-#define DEBUG_WOLFTPM
-#define WOLFTPM_DEBUG_VERBOSE
-#define WOLFTPM_DEBUG_IO
-#define WOLFTPM_DEBUG_TIMEOUT
+/* Debugging - disabled for clean output */
+/* #define DEBUG_WOLFTPM */
+/* #define WOLFTPM_DEBUG_VERBOSE */
+/* #define WOLFTPM_DEBUG_IO */
+/* #define WOLFTPM_DEBUG_TIMEOUT */
 
 /* SPI Wait state checking - most TPMs use this */
 #define WOLFTPM_CHECK_WAIT_STATE

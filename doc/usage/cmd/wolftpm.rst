@@ -57,6 +57,145 @@ Firmware Management
 - ``firmware_update <manifest_addr> <manifest_sz> <firmware_addr> <firmware_sz>`` - Update TPM firmware
 - ``firmware_cancel`` - Cancel TPM firmware update
 
+Infineon TPM Firmware Update Guide
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**WARNING: Firmware updates are risky. A failed update can brick your TPM.
+Only proceed if you have a valid reason to update (security patches, new features)
+and understand the risks.**
+
+The firmware update commands are for Infineon SLB9672/SLB9673 TPMs only. The process
+requires extracting manifest and firmware data from Infineon's combined ``.BIN`` file.
+
+**Prerequisites:**
+
+- Infineon firmware file (e.g., ``TPM20_16.13.17733.0_R1.BIN``)
+- wolfTPM's ``ifx_fw_extract`` tool (in ``lib/wolftpm/examples/firmware/``)
+- Your TPM's KeyGroupId (shown by ``wolftpm caps`` command)
+
+**Step 1: Get your TPM's KeyGroupId**
+
+Run ``wolftpm caps`` to find your TPM's KeyGroupId::
+
+    U-Boot> wolftpm caps
+    Mfg IFX (1), Vendor SLB9672, Fw 16.13 (0x4545), FIPS 140-2 1, CC-EAL4 1
+    Operational mode: Normal TPM operational mode (0x0)
+    KeyGroupId 0x5, FwCounter 1255 (255 same)
+    ...
+
+In this example, KeyGroupId is ``0x5``.
+
+**Step 2: Build the extraction tool (on host machine)**
+
+::
+
+    cd lib/wolftpm/examples/firmware
+    gcc -o ifx_fw_extract ifx_fw_extract.c
+
+**Step 3: List available key groups in firmware file**
+
+::
+
+    ./ifx_fw_extract TPM20_16.13.17733.0_R1.BIN
+    Found group 00000005
+
+Verify your TPM's KeyGroupId matches one in the firmware file.
+
+**Step 4: Extract manifest and firmware data**
+
+Use your KeyGroupId (0x5 in this example)::
+
+    ./ifx_fw_extract TPM20_16.13.17733.0_R1.BIN 0x5 manifest.bin firmware.bin
+    Found group 00000005
+    Chosen group found: 00000005
+    Manifest size is 3229
+    Data size is 925539
+    Wrote 3229 bytes to manifest.bin
+    Wrote 925539 bytes to firmware.bin
+
+**Step 5: Copy files to SD card**
+
+Copy ``manifest.bin`` and ``firmware.bin`` to your boot partition (FAT)::
+
+    cp manifest.bin firmware.bin /Volumes/bootfs/   # macOS
+    cp manifest.bin firmware.bin /boot/firmware/     # Linux
+
+**Step 6: Load files into memory**
+
+In U-Boot, load the files from SD card into RAM::
+
+    U-Boot> fatload mmc 0:1 0x10000000 manifest.bin
+    3229 bytes read in 32 ms (97.7 KiB/s)
+
+    U-Boot> fatload mmc 0:1 0x10100000 firmware.bin
+    925539 bytes read in 86 ms (10.3 MiB/s)
+
+**Step 7: Perform firmware update (CAUTION!)**
+
+Convert file sizes to hex:
+
+- manifest.bin: 3229 bytes = 0xC9D
+- firmware.bin: 925539 bytes = 0xE1F63
+
+Run the firmware update::
+
+    U-Boot> wolftpm firmware_update 0x10000000 0xC9D 0x10100000 0xE1F63
+    TPM2 Firmware Update
+    Infineon Firmware Update Tool
+        Manifest Address: 0x10000000 (size: 3229)
+        Firmware Address: 0x10100000 (size: 925539)
+    tpm2 init: rc = 0 (Success)
+    Mfg IFX (1), Vendor SLB9672, Fw 16.13 (0x4545)
+    Operational mode: Normal TPM operational mode (0x0)
+    KeyGroupId 0x5, FwCounter 1255 (255 same)
+    Firmware Update (normal mode):
+    Mfg IFX (1), Vendor SLB9672, Fw 16.13 (0x4545)
+    Operational mode: Normal TPM operational mode (0x0)
+    KeyGroupId 0x5, FwCounter 1255 (255 same)
+    tpm2 firmware_update: rc=0 (Success)
+
+**DO NOT power off or reset during the update!**
+
+**Step 8: Verify update**
+
+After the update completes, verify with::
+
+    U-Boot> wolftpm caps
+
+The firmware version should show the new version.
+
+**Recovery Mode:**
+
+If the TPM enters recovery mode (opMode shows 0x02 or 0x8x), the firmware update
+command will automatically use recovery mode. You may need to run the update again
+to complete the process.
+
+Canceling a Firmware Update
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If an update is in progress and needs to be abandoned (opMode 0x01), use::
+
+    U-Boot> wolftpm firmware_cancel
+    tpm2 init: rc = 0 (Success)
+    tpm2 firmware_cancel: rc=0 (Success)
+
+**IMPORTANT: After running firmware_cancel, you MUST reboot/power cycle the system
+before running any other TPM commands.** If you attempt to run commands without
+rebooting, you will get ``TPM_RC_REBOOT`` (error 304)::
+
+    U-Boot> wolftpm firmware_update ...
+    tpm2 init: rc = 304 (TPM_RC_REBOOT)
+    Infineon firmware update failed 0x130: TPM_RC_REBOOT
+
+After rebooting, the TPM will return to normal operation and you can retry the
+firmware update or continue with normal TPM operations.
+
+**Note:** If no firmware update is in progress, ``firmware_cancel`` returns
+``TPM_RC_COMMAND_CODE`` (0x143), which is expected and harmless::
+
+    U-Boot> wolftpm firmware_cancel
+    tpm2 firmware_cancel: rc=323 (TPM_RC_COMMAND_CODE)
+
 Enabling wolfTPM in U-Boot
 --------------------------
 

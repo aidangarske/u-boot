@@ -33,6 +33,7 @@
 #include <log.h>
 #include <string.h>
 
+
 /* Firmware update info structure for Infineon TPM */
 #ifdef WOLFTPM_FIRMWARE_UPGRADE
 #if defined(WOLFTPM_SLB9672) || defined(WOLFTPM_SLB9673)

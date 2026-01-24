@@ -8,10 +8,6 @@
  * Based on Linux driver by Chris Boot, Martin Sperl, et al.
  */
 
-/* Reduce debug output - only print first few transfers */
-#define DEBUG
-/* #define BCM2835_SPI_DEBUG */  /* Disabled - too much output */
-
 #include <dm.h>
 #include <errno.h>
 #include <log.h>
@@ -21,12 +17,6 @@
 #include <asm/gpio.h>
 #include <dm/device_compat.h>
 #include <linux/delay.h>
-
-#ifdef BCM2835_SPI_DEBUG
-#define spi_debug(fmt, args...) printf("BCM2835_SPI: " fmt, ##args)
-#else
-#define spi_debug(fmt, args...) debug(fmt, ##args)
-#endif
 
 /* SPI register offsets */
 #define BCM2835_SPI_CS      0x00    /* Control and Status */
@@ -116,26 +106,6 @@ static void bcm2835_spi_cs_deassert(int cs_pin)
     writel(1 << cs_pin, g_gpio_base + 0x1C);
 }
 
-static void bcm2835_spi_cs_activate(struct udevice *dev)
-{
-    struct udevice *bus = dev_get_parent(dev);
-    struct bcm2835_spi_priv *priv = dev_get_priv(bus);
-
-    /* Assert chip select (active low) */
-    if (priv->cs_gpio_valid)
-        dm_gpio_set_value(&priv->cs_gpio, 0);
-}
-
-static void bcm2835_spi_cs_deactivate(struct udevice *dev)
-{
-    struct udevice *bus = dev_get_parent(dev);
-    struct bcm2835_spi_priv *priv = dev_get_priv(bus);
-
-    /* Deassert chip select */
-    if (priv->cs_gpio_valid)
-        dm_gpio_set_value(&priv->cs_gpio, 1);
-}
-
 static int bcm2835_spi_xfer(struct udevice *dev, unsigned int bitlen,
                             const void *dout, void *din, unsigned long flags)
 {
@@ -150,16 +120,12 @@ static int bcm2835_spi_xfer(struct udevice *dev, unsigned int bitlen,
     int cs = spi_chip_select(dev);  /* Get chip select from slave device */
     int cs_pin = (cs == 0) ? 8 : 7; /* CS0=GPIO8, CS1=GPIO7 */
     u32 stat;
-    static int xfer_count = 0;
-
-    xfer_count++;
 
     if (bitlen == 0) {
         /* Handle CS-only operations (deassert) */
         if (flags & SPI_XFER_END) {
             bcm2835_spi_cs_deassert(cs_pin);
             priv->cs_asserted = 0;
-            spi_debug("XFER #%d: CS deassert only (END flag)\n", xfer_count);
         }
         return 0;
     }
@@ -167,19 +133,6 @@ static int bcm2835_spi_xfer(struct udevice *dev, unsigned int bitlen,
     if (bitlen % 8) {
         dev_err(dev, "Non-byte-aligned transfer not supported\n");
         return -EINVAL;
-    }
-
-    spi_debug("=== XFER #%d START ===\n", xfer_count);
-    spi_debug("  len=%d, cs=%d (GPIO%d), flags=0x%lx (BEGIN=%d END=%d)\n",
-              len, cs, cs_pin, flags, !!(flags & SPI_XFER_BEGIN), !!(flags & SPI_XFER_END));
-
-    /* Show TX data */
-    if (tx && len <= 16) {
-        int i;
-        spi_debug("  TX data: ");
-        for (i = 0; i < len; i++)
-            printf("%02X ", tx[i]);
-        printf("\n");
     }
 
     /*
@@ -190,7 +143,6 @@ static int bcm2835_spi_xfer(struct udevice *dev, unsigned int bitlen,
 
     /* Assert CS at start of transaction (SPI_XFER_BEGIN) */
     if (flags & SPI_XFER_BEGIN) {
-        spi_debug("  Asserting CS (GPIO%d LOW)...\n", cs_pin);
         bcm2835_spi_cs_assert(cs_pin);
         priv->cs_asserted = 1;
         udelay(1);  /* CS setup time */
@@ -256,33 +208,17 @@ static int bcm2835_spi_xfer(struct udevice *dev, unsigned int bitlen,
      * - No END flag: keep CS asserted for next transfer
      */
     if (flags & SPI_XFER_END) {
-        spi_debug("  Deasserting CS (GPIO%d HIGH)...\n", cs_pin);
         bcm2835_spi_cs_deassert(cs_pin);
         priv->cs_asserted = 0;
     } else {
         /* Keep CS asserted for next transfer (e.g., wait state polling) */
         priv->cs_asserted = 1;
-        spi_debug("  Keeping CS asserted (GPIO%d LOW)\n", cs_pin);
     }
-
-    /* Show RX data */
-    if (rx && len <= 16) {
-        int i;
-        spi_debug("  RX data: ");
-        for (i = 0; i < len; i++)
-            printf("%02X ", rx[i]);
-        printf("\n");
-    }
-
-    spi_debug("  tx_count=%d, rx_count=%d\n", tx_count, rx_count);
 
     if (timeout == 0) {
-        spi_debug("  !!! TIMEOUT !!!\n");
         bcm2835_spi_cs_deassert(cs_pin);  /* Make sure CS is released */
         return -ETIMEDOUT;
     }
-
-    spi_debug("=== XFER #%d COMPLETE ===\n\n", xfer_count);
 
     return 0;
 }
@@ -309,8 +245,6 @@ static int bcm2835_spi_set_speed(struct udevice *bus, uint speed)
 
     bcm2835_spi_writel(priv, BCM2835_SPI_CLK, cdiv);
 
-    debug("bcm2835_spi: set_speed %u Hz, cdiv=%u\n", speed, cdiv);
-
     return 0;
 }
 
@@ -330,20 +264,16 @@ static int bcm2835_spi_set_mode(struct udevice *bus, uint mode)
     /* CS bits will be set in xfer based on slave's chip select */
     priv->cs_reg = cs_reg;
 
-    debug("bcm2835_spi: set_mode 0x%x, cs_reg=0x%x\n", mode, cs_reg);
-
     return 0;
 }
 
 static int bcm2835_spi_claim_bus(struct udevice *dev)
 {
-    debug("bcm2835_spi: claim_bus\n");
     return 0;
 }
 
 static int bcm2835_spi_release_bus(struct udevice *dev)
 {
-    debug("bcm2835_spi: release_bus\n");
     return 0;
 }
 
@@ -351,13 +281,6 @@ static int bcm2835_spi_release_bus(struct udevice *dev)
 static void bcm2835_spi_setup_gpio(void)
 {
     u32 val;
-
-    printf("BCM2835 SPI: Setting up GPIO pins for SPI0...\n");
-    printf("  Using SOFTWARE chip select (GPIO as output)\n");
-
-    /* Read current GPFSEL values */
-    printf("  GPFSEL0 before: 0x%08X\n", readl(g_gpio_base + 0x00));
-    printf("  GPFSEL1 before: 0x%08X\n", readl(g_gpio_base + 0x04));
 
     /*
      * SPI0 pin configuration:
@@ -386,35 +309,13 @@ static void bcm2835_spi_setup_gpio(void)
     /* Deassert both CS lines (HIGH = inactive) */
     bcm2835_spi_cs_deassert(7);  /* CE1 */
     bcm2835_spi_cs_deassert(8);  /* CE0 */
-
-    /* Read back to verify */
-    printf("  GPFSEL0 after:  0x%08X\n", readl(g_gpio_base + 0x00));
-    printf("  GPFSEL1 after:  0x%08X\n", readl(g_gpio_base + 0x04));
-
-    /* Decode and print individual GPIO functions */
-    val = readl(g_gpio_base + 0x00);
-    printf("  GPIO7 (CE1):  func=%d (should be 1=OUTPUT)\n", (val >> 21) & 7);
-    printf("  GPIO8 (CE0):  func=%d (should be 1=OUTPUT)\n", (val >> 24) & 7);
-    printf("  GPIO9 (MISO): func=%d (should be 4=ALT0)\n", (val >> 27) & 7);
-    val = readl(g_gpio_base + 0x04);
-    printf("  GPIO10 (MOSI): func=%d (should be 4=ALT0)\n", (val >> 0) & 7);
-    printf("  GPIO11 (SCLK): func=%d (should be 4=ALT0)\n", (val >> 3) & 7);
-
-    /* Check GPIO levels */
-    val = readl(g_gpio_base + 0x34);  /* GPLEV0 */
-    printf("  GPIO7 level: %d (should be 1=HIGH)\n", (val >> 7) & 1);
-    printf("  GPIO8 level: %d (should be 1=HIGH)\n", (val >> 8) & 1);
-
-    printf("BCM2835 SPI: GPIO setup complete (software CS)\n");
 }
 
-/* TPM Reset via GPIO4 and GPIO24 - try both pins */
+/* TPM Reset via GPIO4 and GPIO24 */
 static void bcm2835_spi_tpm_reset(void)
 {
     void __iomem *gpio_base = (void __iomem *)0xFE200000;
     u32 val;
-
-    printf("BCM2835 SPI: Resetting TPM via GPIO4 and GPIO24...\n");
 
     /* Set GPIO4 as output (GPFSEL0, bits 14:12) */
     val = readl(gpio_base + 0x00);  /* GPFSEL0 */
@@ -429,20 +330,12 @@ static void bcm2835_spi_tpm_reset(void)
     writel(val, gpio_base + 0x08);
 
     /* Assert reset on BOTH pins (LOW) */
-    printf("  Asserting reset (GPIO4 & GPIO24 LOW)...\n");
     writel((1 << 4) | (1 << 24), gpio_base + 0x28);  /* GPCLR0 */
     mdelay(100);
 
     /* Release reset on BOTH pins (HIGH) */
-    printf("  Releasing reset (GPIO4 & GPIO24 HIGH)...\n");
     writel((1 << 4) | (1 << 24), gpio_base + 0x1C);  /* GPSET0 */
     mdelay(150);  /* Wait for TPM to initialize */
-
-    /* Read back GPIO levels to verify */
-    val = readl(gpio_base + 0x34);  /* GPLEV0 */
-    printf("  GPIO4=%d, GPIO24=%d\n", (val >> 4) & 1, (val >> 24) & 1);
-
-    printf("BCM2835 SPI: TPM reset complete\n");
 }
 
 static int bcm2835_spi_probe(struct udevice *bus)
@@ -450,32 +343,15 @@ static int bcm2835_spi_probe(struct udevice *bus)
     struct bcm2835_spi_plat *plat = dev_get_plat(bus);
     struct bcm2835_spi_priv *priv = dev_get_priv(bus);
     int ret;
-    u32 cs_val;
 
     priv->regs = (void __iomem *)plat->base;
     priv->clk_hz = plat->clk_hz ? plat->clk_hz : BCM2835_SPI_DEFAULT_CLK;
-
-    printf("\n");
-    printf("=============================================\n");
-    printf("BCM2835 SPI: Hardware SPI driver loaded\n");
-    printf("=============================================\n");
-    printf("  Register base: 0x%lx\n", (unsigned long)plat->base);
-    printf("  Input clock:   %u Hz\n", priv->clk_hz);
 
     /* Setup GPIO pins for SPI0 (ALT0 function) */
     bcm2835_spi_setup_gpio();
 
     /* Reset TPM before using SPI */
     bcm2835_spi_tpm_reset();
-
-    /* Read and display current register values */
-    cs_val = bcm2835_spi_readl(priv, BCM2835_SPI_CS);
-    printf("  Initial CS reg: 0x%08X\n", cs_val);
-    printf("    CPOL=%d CPHA=%d CS=%d\n",
-           !!(cs_val & BCM2835_SPI_CS_CPOL),
-           !!(cs_val & BCM2835_SPI_CS_CPHA),
-           cs_val & 0x3);
-    printf("  Initial CLK reg: %d\n", bcm2835_spi_readl(priv, BCM2835_SPI_CLK));
 
     /* Try to get CS GPIO from device tree */
     ret = gpio_request_by_name(bus, "cs-gpios", 0, &priv->cs_gpio,
@@ -484,29 +360,16 @@ static int bcm2835_spi_probe(struct udevice *bus)
         priv->cs_gpio_valid = 1;
         /* Deassert CS initially */
         dm_gpio_set_value(&priv->cs_gpio, 1);
-        printf("  CS GPIO: configured (software CS)\n");
     } else {
         priv->cs_gpio_valid = 0;
-        printf("  CS GPIO: not configured, using hardware CS\n");
     }
 
     /* Reset the SPI controller */
-    printf("  Resetting SPI controller...\n");
     bcm2835_spi_reset(priv);
 
-    /* Set default speed and mode - try very slow for debugging */
-    printf("  Setting default speed: 10 KHz (very slow for debug)\n");
-    bcm2835_spi_set_speed(bus, 10000);
-    printf("  Setting default mode: SPI_MODE_0\n");
+    /* Set default speed and mode */
+    bcm2835_spi_set_speed(bus, 1000000);  /* 1 MHz default */
     bcm2835_spi_set_mode(bus, SPI_MODE_0);
-
-    /* Show final state */
-    cs_val = bcm2835_spi_readl(priv, BCM2835_SPI_CS);
-    printf("  Final CS reg: 0x%08X\n", cs_val);
-    printf("  Final CLK reg: %d (actual speed: %u Hz)\n",
-           bcm2835_spi_readl(priv, BCM2835_SPI_CLK),
-           priv->speed_hz);
-    printf("=============================================\n\n");
 
     return 0;
 }
@@ -522,21 +385,13 @@ static int bcm2835_spi_of_to_plat(struct udevice *bus)
         return -EINVAL;
     }
 
-    printf("BCM2835 SPI: Device tree address = 0x%lx\n", (unsigned long)addr);
-
     /*
      * On BCM2711 (Pi 4), the device tree often uses VideoCore bus addresses
      * which start with 0x7E. The ARM needs to access these via the ARM
      * peripheral base at 0xFE000000.
-     *
-     * VideoCore: 0x7E000000 - 0x7EFFFFFF
-     * ARM:       0xFE000000 - 0xFEFFFFFF
-     *
-     * Translate if we detect a VideoCore address.
      */
     if ((addr & 0xFF000000) == 0x7E000000) {
         addr = (addr & 0x00FFFFFF) | 0xFE000000;
-        printf("BCM2835 SPI: Translated to ARM address = 0x%lx\n", (unsigned long)addr);
     }
 
     plat->base = addr;
@@ -544,9 +399,6 @@ static int bcm2835_spi_of_to_plat(struct udevice *bus)
     /* Try to get clock rate from device tree */
     plat->clk_hz = dev_read_u32_default(bus, "clock-frequency",
                                          BCM2835_SPI_DEFAULT_CLK);
-
-    printf("BCM2835 SPI: Final base=0x%lx, clk=%u\n",
-          (unsigned long)plat->base, plat->clk_hz);
 
     return 0;
 }

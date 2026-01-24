@@ -69,13 +69,14 @@ CONFIG_SYS_WHITE_ON_BLACK=y
 CONFIG_VIDEO_BCM2835=y
 CONFIG_CONSOLE_SCROLL_LINES=10
 CONFIG_PHYS_TO_BUS=y
-# CONFIG_HEXDUMP is not set
+# HEXDUMP enabled for unit tests
 
-# SPI support (BCM2835 hardware SPI)
+# SPI support (hardware SPI - matches Linux tpm-slb9670 overlay)
 CONFIG_SPI=y
 CONFIG_DM_SPI=y
 CONFIG_BCM2835_SPI=y
 # CONFIG_SOFT_SPI is not set
+CONFIG_CMD_SPI=y
 
 # TPM and wolfTPM support
 CONFIG_TPM=y
@@ -86,7 +87,13 @@ CONFIG_TPM_WOLF=y
 CONFIG_WOLFTPM_SLB9672=y
 CONFIG_CMD_WOLFTPM=y
 
-# Enable debug logging for TPM/SPI troubleshooting
+# Logging (debug level to see log_debug output)
 CONFIG_LOG=y
 CONFIG_LOGLEVEL=7
 CONFIG_LOG_MAX_LEVEL=7
+CONFIG_LOG_DEFAULT_LEVEL=7
+
+# Unit testing support
+CONFIG_UNIT_TEST=y
+CONFIG_CONSOLE_RECORD=y
+CONFIG_HEXDUMP=y

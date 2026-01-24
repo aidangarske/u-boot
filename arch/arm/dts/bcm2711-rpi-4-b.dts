@@ -8,7 +8,7 @@
 	compatible = "raspberrypi,4-model-b", "brcm,bcm2711";
 	model = "Raspberry Pi 4 Model B";
 
-	/* Alias hardware spi as spi0 so wolfTPM finds it at bus 0 */
+	/* Alias hardware SPI as spi0 so wolfTPM finds it at bus 0 */
 	aliases {
 		spi0 = &spi;
 	};
@@ -62,20 +62,16 @@
 
 };
 
-/* Enable hardware SPI controller with TPM
- * Uses SPI0 at 0x7e204000 (0xfe204000 on Pi 4)
- * GPIO pins: 7=CE1, 8=CE0, 9=MISO, 10=MOSI, 11=SCLK
- * Official Raspberry Pi tpm-slb9670 overlay uses CE1 (GPIO7)
- */
+/* Hardware SPI with TPM - matches Linux tpm-slb9670 overlay */
 &spi {
 	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&spi0_gpio7>;
 
-	/* Infineon SLB9670/9672 TPM 2.0 on chip select 1 (CE1/GPIO7) */
+	/* Infineon SLB9670/9672 TPM 2.0 on CE1 (GPIO7) */
 	tpm@1 {
 		compatible = "infineon,slb9670", "tcg,tpm_tis-spi";
-		reg = <1>;
+		reg = <1>;  /* CE1 */
 		spi-max-frequency = <32000000>;
 	};
 };
