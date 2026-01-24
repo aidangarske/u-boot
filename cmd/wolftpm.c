@@ -1326,11 +1326,11 @@ static int do_wolftpm(struct cmd_tbl *cmdtp, int flag, int argc,
 }
 
 U_BOOT_CMD(
-    wolftpm,             /* name of cmd */
+    tpm2,                   /* name of cmd - replaces standard tpm2 when wolfTPM enabled */
     CONFIG_SYS_MAXARGS,     /* max args    */
     1,                      /* repeatable  */
     do_wolftpm,             /* function    */
-    "Issue a TPMv2.x command - Using wolfTPM",
+    "Issue a TPMv2.x command (wolfTPM)",
     "<command> [<arguments>]\n"
     "\n"
     "Commands:\n"

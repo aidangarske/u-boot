@@ -14,7 +14,7 @@ wolfTPM provides experimental support for U-Boot with the following key features
 wolfTPM U-Boot Commands
 ----------------------
 
-The following commands are available through the ``wolftpm`` interface:
+The following commands are available through the ``tpm2`` command (powered by wolfTPM):
 
 Basic Commands
 ~~~~~~~~~~~~~~
@@ -71,13 +71,13 @@ requires extracting manifest and firmware data from Infineon's combined ``.BIN``
 
 - Infineon firmware file (e.g., ``TPM20_16.13.17733.0_R1.BIN``)
 - wolfTPM's ``ifx_fw_extract`` tool (in ``lib/wolftpm/examples/firmware/``)
-- Your TPM's KeyGroupId (shown by ``wolftpm caps`` command)
+- Your TPM's KeyGroupId (shown by ``tpm2 caps`` command)
 
 **Step 1: Get your TPM's KeyGroupId**
 
-Run ``wolftpm caps`` to find your TPM's KeyGroupId::
+Run ``tpm2 caps`` to find your TPM's KeyGroupId::
 
-    U-Boot> wolftpm caps
+    U-Boot> tpm2 caps
     Mfg IFX (1), Vendor SLB9672, Fw 16.13 (0x4545), FIPS 140-2 1, CC-EAL4 1
     Operational mode: Normal TPM operational mode (0x0)
     KeyGroupId 0x5, FwCounter 1255 (255 same)
@@ -139,7 +139,7 @@ Convert file sizes to hex:
 
 Run the firmware update::
 
-    U-Boot> wolftpm firmware_update 0x10000000 0xC9D 0x10100000 0xE1F63
+    U-Boot> tpm2 firmware_update 0x10000000 0xC9D 0x10100000 0xE1F63
     TPM2 Firmware Update
     Infineon Firmware Update Tool
         Manifest Address: 0x10000000 (size: 3229)
@@ -160,7 +160,7 @@ Run the firmware update::
 
 After the update completes, verify with::
 
-    U-Boot> wolftpm caps
+    U-Boot> tpm2 caps
 
 The firmware version should show the new version.
 
@@ -175,7 +175,7 @@ Canceling a Firmware Update
 
 If an update is in progress and needs to be abandoned (opMode 0x01), use::
 
-    U-Boot> wolftpm firmware_cancel
+    U-Boot> tpm2 firmware_cancel
     tpm2 init: rc = 0 (Success)
     tpm2 firmware_cancel: rc=0 (Success)
 
@@ -183,7 +183,7 @@ If an update is in progress and needs to be abandoned (opMode 0x01), use::
 before running any other TPM commands.** If you attempt to run commands without
 rebooting, you will get ``TPM_RC_REBOOT`` (error 304)::
 
-    U-Boot> wolftpm firmware_update ...
+    U-Boot> tpm2 firmware_update ...
     tpm2 init: rc = 304 (TPM_RC_REBOOT)
     Infineon firmware update failed 0x130: TPM_RC_REBOOT
 
@@ -193,7 +193,7 @@ firmware update or continue with normal TPM operations.
 **Note:** If no firmware update is in progress, ``firmware_cancel`` returns
 ``TPM_RC_COMMAND_CODE`` (0x143), which is expected and harmless::
 
-    U-Boot> wolftpm firmware_cancel
+    U-Boot> tpm2 firmware_cancel
     tpm2 firmware_cancel: rc=323 (TPM_RC_COMMAND_CODE)
 
 Enabling wolfTPM in U-Boot
@@ -542,11 +542,11 @@ For testing with real TPM hardware (e.g., Infineon SLB9672 TPM HAT on Raspberry 
 
 6. Reboot and test at U-Boot prompt::
 
-     U-Boot> wolftpm device
-     U-Boot> wolftpm info
-     U-Boot> wolftpm autostart
-     U-Boot> wolftpm caps
-     U-Boot> wolftpm pcr_read 0 0x1000000 SHA256
+     U-Boot> tpm2 device
+     U-Boot> tpm2 info
+     U-Boot> tpm2 autostart
+     U-Boot> tpm2 caps
+     U-Boot> tpm2 pcr_read 0 0x1000000 SHA256
 
 7. To restore normal Linux boot::
 

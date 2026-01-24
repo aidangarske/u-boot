@@ -2814,6 +2814,9 @@ config CMD_TPM
 	  command requires a suitable TPM on your board and the correct driver
 	  must be enabled.
 
+	  Note: For TPM2, do not enable both CMD_TPM and CMD_WOLFTPM as they
+	  both provide the tpm2 command.
+
 if CMD_TPM
 
 config CMD_TPM_TEST
@@ -3195,10 +3198,16 @@ config CMD_SPAWN_NUM_JOBS
 	  spawn command.
 
 config CMD_WOLFTPM
-    bool "Enable wolfTPM commands"
-    depends on TPM
-    help
-      This provides commands for interacting with TPM 2.0 devices
-      using the wolfTPM library.
+	bool "Enable wolfTPM tpm2 command (replaces standard tpm2)"
+	depends on TPM && TPM_V2
+	select TPM_WOLF
+	help
+	  This provides the 'tpm2' command using the wolfTPM library instead
+	  of the standard U-Boot TPM2 implementation. wolfTPM offers additional
+	  features including firmware update support for Infineon TPMs and
+	  enhanced capabilities reporting.
+
+	  Note: Do not enable both CMD_TPM and CMD_WOLFTPM as they both
+	  provide the tpm2 command.
 
 endif
