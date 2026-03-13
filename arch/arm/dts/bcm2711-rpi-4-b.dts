@@ -8,6 +8,11 @@
 	compatible = "raspberrypi,4-model-b", "brcm,bcm2711";
 	model = "Raspberry Pi 4 Model B";
 
+	/* Alias hardware SPI as spi0 so wolfTPM finds it at bus 0 */
+	aliases {
+		spi0 = &spi;
+	};
+
 	chosen {
 		/* 8250 auxiliary UART instead of pl011 */
 		stdout-path = "serial1:115200n8";
@@ -53,6 +58,21 @@
 		regulator-boot-on;
 		enable-active-high;
 		gpio = <&expgpio 6 GPIO_ACTIVE_HIGH>;
+	};
+
+};
+
+/* Hardware SPI with TPM - matches Linux tpm-slb9670 overlay */
+&spi {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi0_gpio7>;
+
+	/* Infineon SLB9670/9672 TPM 2.0 on CE1 (GPIO7) */
+	tpm@1 {
+		compatible = "infineon,slb9670", "tcg,tpm_tis-spi";
+		reg = <1>;  /* CE1 */
+		spi-max-frequency = <32000000>;
 	};
 };
 

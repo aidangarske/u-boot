@@ -1,0 +1,54 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * U-Boot specific additions for Raspberry Pi 4 Model B
+ *
+ * Adds soft SPI support for Infineon SLB9670/9672 TPM HAT
+ * connected to SPI0 CE1 (GPIO 7)
+ *
+ * Uses GPIO bit-banging instead of hardware SPI to avoid
+ * GPIO chip naming issues (pinctrl-bcm2835 vs pinctrl-bcm2711)
+ */
+
+#include "bcm283x-u-boot.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	aliases {
+		spi0 = &soft_spi;
+	};
+
+	soft_spi: soft-spi {
+		compatible = "spi-gpio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "okay";
+		bootph-all;
+
+		/*
+		 * GPIO pins for SPI0 on Raspberry Pi 4:
+		 * GPIO 11 = SCLK
+		 * GPIO 10 = MOSI
+		 * GPIO 9  = MISO
+		 * GPIO 7  = CE1 (chip select for TPM)
+		 */
+		gpio-sck = <&gpio 11 GPIO_ACTIVE_HIGH>;
+		gpio-mosi = <&gpio 10 GPIO_ACTIVE_HIGH>;
+		gpio-miso = <&gpio 9 GPIO_ACTIVE_HIGH>;
+		cs-gpios = <&gpio 7 GPIO_ACTIVE_LOW>;
+		num-chipselects = <1>;
+		spi-delay-us = <1>;
+
+		/* Infineon SLB9672 TPM on CS1 */
+		tpm@0 {
+			compatible = "infineon,slb9672", "tcg,tpm-tis-spi";
+			reg = <0>;
+			spi-max-frequency = <10000000>;
+			status = "okay";
+			bootph-all;
+		};
+	};
+};
+
+&gpio {
+	bootph-all;
+};
